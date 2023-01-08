@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/home/PrinceAmmon/github/json-parser/build",
-  "command": "/usr/bin/g++   -g -o CMakeFiles/json_parser.dir/json.cpp.o -c /home/PrinceAmmon/github/json-parser/json.cpp",
-  "file": "/home/PrinceAmmon/github/json-parser/json.cpp"
-}
-]
