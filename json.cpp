@@ -3,6 +3,7 @@
 JsonValue JsonParser::Parse(const std::string& json_string)
 {
 	size_t index =0;
+	SkipComment(json_string, index);
 	return ParseValue(json_string, index);
 }
 
@@ -340,3 +341,25 @@ std::string JsonParser::UnicodeCodePointToUtf8(int code_point)
   	}
   	return result;
 }
+
+void JsonParser::SkipComment(const std::string& json_string, size_t& index)
+{
+	while (json_string[index] != '\0')
+	{
+		char c = json_string[index];
+		if(c == '/' && json_string[index +1] == '/')
+		{
+			while (json_string[index] != '\0' && json_string[index]  != '\n')
+					++index;
+		}
+		else if (c == '/' && json_string[index+1] =='*')
+		{
+			index +=2;
+			while (json_string[index] != '\0' && !(json_string[index] == '*' && json_string[index +1] == '/'))
+				++index;
+			index +=2;
+		}
+		else break;
+	}
+}	
+
