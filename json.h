@@ -20,6 +20,55 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		ClearObject();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (type == JsonValueType::Object) {
+			for (const auto& kv : other.object_value) {
+				object_value[kv.first] = new JsonValue(*kv.second);
+			}
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			ClearObject();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			object_value.clear();
+			if (type == JsonValueType::Object) {
+				for (const auto& kv : other.object_value) {
+					object_value[kv.first] = new JsonValue(*kv.second);
+				}
+			}
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			ClearObject();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
@@ -70,6 +119,15 @@ struct JsonValue{
 
  
 	private:
+
+	void ClearObject() {
+		if (type == JsonValueType::Object) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			object_value.clear();
+		}
+	}
 	
 	std::string ArrayToString(const std::vector<JsonValue>& array) const {
 		std::string result = "[";
