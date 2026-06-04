@@ -363,3 +363,65 @@ void JsonParser::SkipComment(const std::string& json_string, size_t& index)
 	}
 }	
 
+
+JsonValue::~JsonValue() {
+	if (type == JsonValueType::Object) {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+	}
+}
+
+JsonValue::JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+	if (type == JsonValueType::Object) {
+		for (const auto& kv : other.object_value) {
+			object_value[kv.first] = new JsonValue(*kv.second);
+		}
+	}
+}
+
+JsonValue::JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+	other.type = JsonValueType::Null;
+}
+
+JsonValue& JsonValue::operator=(const JsonValue& other) {
+	if (this != &other) {
+		if (type == JsonValueType::Object) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			object_value.clear();
+		}
+		type = other.type;
+		boolean_value = other.boolean_value;
+		number_value = other.number_value;
+		string_value = other.string_value;
+		array_value = other.array_value;
+		if (type == JsonValueType::Object) {
+			for (const auto& kv : other.object_value) {
+				object_value[kv.first] = new JsonValue(*kv.second);
+			}
+		}
+	}
+	return *this;
+}
+
+JsonValue& JsonValue::operator=(JsonValue&& other) noexcept {
+	if (this != &other) {
+		if (type == JsonValueType::Object) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			object_value.clear();
+		}
+		type = other.type;
+		boolean_value = other.boolean_value;
+		number_value = other.number_value;
+		string_value = std::move(other.string_value);
+		array_value = std::move(other.array_value);
+		object_value = std::move(other.object_value);
+		other.type = JsonValueType::Null;
+	}
+	return *this;
+}

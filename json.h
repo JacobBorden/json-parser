@@ -19,7 +19,13 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+	~JsonValue();
+	JsonValue(const JsonValue& other);
+	JsonValue(JsonValue&& other) noexcept;
+	JsonValue& operator=(const JsonValue& other);
+	JsonValue& operator=(JsonValue&& other) noexcept;
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
