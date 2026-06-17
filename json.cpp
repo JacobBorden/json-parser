@@ -161,9 +161,9 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 	return result;
 }
 
-std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::string& json_string, size_t& index)
+std::unordered_map<std::string, std::unique_ptr<JsonValue>> JsonParser::ParseObject(const std::string& json_string, size_t& index)
 {
-	std::unordered_map <std::string, JsonValue*> object;
+	std::unordered_map <std::string, std::unique_ptr<JsonValue>> object;
 	SkipWhitespace(json_string, index);
 	ExpectChar(json_string, index, '{');
 	SkipWhitespace(json_string,index);
@@ -173,8 +173,8 @@ std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::s
 		SkipWhitespace(json_string, index);
 		ExpectChar(json_string, index, ':');
 		SkipWhitespace(json_string, index);
-		JsonValue* val = new JsonValue(ParseValue(json_string,index));
-		object[key] = val;
+		auto val = std::make_unique<JsonValue>(ParseValue(json_string,index));
+		object[key] = std::move(val);
 		SkipWhitespace(json_string, index);
 
 		if(index < json_string.length())
@@ -247,6 +247,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 	double fraction =0.0;
 	if(index < json_string.length() && json_string[index] == '.')
 	{
+		++index;
 		double scale =0.1;
 		while(index < json_string.length() && IsDigit(json_string[index]))
 		{
@@ -256,9 +257,10 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 		}
 	}
 
-	double exponent_value = 0;
+	double exponent_value = 1.0;
 	if(index < json_string.length() && (json_string[index] == 'e' || json_string[index] == 'E'))
 	{
+		++index;
 		bool exponent_negative = false;
 		if(json_string[index] == '-')
 		{
