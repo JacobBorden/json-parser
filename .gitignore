@@ -1,2 +1,4 @@
 build/*
 .ccls-cache/*
+test_bug
+test_parse_number
