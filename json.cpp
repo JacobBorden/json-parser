@@ -247,6 +247,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 	double fraction =0.0;
 	if(index < json_string.length() && json_string[index] == '.')
 	{
+		++index;
 		double scale =0.1;
 		while(index < json_string.length() && IsDigit(json_string[index]))
 		{
@@ -256,21 +257,32 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 		}
 	}
 
-	double exponent_value = 0;
+	double exponent_value = 1.0;
 	if(index < json_string.length() && (json_string[index] == 'e' || json_string[index] == 'E'))
 	{
+		++index;
 		bool exponent_negative = false;
-		if(json_string[index] == '-')
+		if(index < json_string.length() && json_string[index] == '-')
 		{
 			exponent_negative = true;
 			++index;
 		}
+		else if(index < json_string.length() && json_string[index] == '+')
+		{
+			++index;
+		}
+
+		bool has_digits = false;
 		unsigned long long exponent =0;
 		while(index < json_string.length() && IsDigit(json_string[index]))
 		{
+			has_digits = true;
 			exponent = exponent *10 + (json_string[index] - '0');
 			++index;
 		}
+
+		if(!has_digits)
+			throw JsonParseException("Expected digits after exponent character");
 
 		if(exponent_negative)
 			exponent_value = 1.0 / std::pow(10.0, exponent);
