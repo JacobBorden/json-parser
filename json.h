@@ -26,6 +26,61 @@ struct JsonValue{
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+
+	~JsonValue() {
+		for (auto& pair : object_value) {
+			delete pair.second;
+		}
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		for (const auto& pair : other.object_value) {
+			object_value[pair.first] = new JsonValue(*pair.second);
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+
+			for (auto& pair : object_value) {
+				delete pair.second;
+			}
+			object_value.clear();
+
+			for (const auto& pair : other.object_value) {
+				object_value[pair.first] = new JsonValue(*pair.second);
+			}
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.object_value.clear();
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			for (auto& pair : object_value) {
+				delete pair.second;
+			}
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+			other.object_value.clear();
+		}
+		return *this;
+	}
+
 	std::string ToString() const{
 		switch (type)
 		{
@@ -42,6 +97,7 @@ struct JsonValue{
 			case JsonValueType::Object:
 				return ObjectToString(object_value);
 		}
+		return "";
 	}
 
 
