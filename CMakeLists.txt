@@ -6,6 +6,9 @@ enable_testing()
 
 add_library(json_parser json.cpp)
 
+add_executable(test_memory_leak test_memory_leak.cpp)
+target_link_libraries(test_memory_leak json_parser)
+
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
