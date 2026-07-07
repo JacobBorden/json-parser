@@ -20,12 +20,50 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		for (auto& pair : object_value) {
+			delete pair.second;
+		}
+		object_value.clear();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		std::unordered_map<std::string, JsonValue*> temp_object_value;
+		try {
+			for (const auto& pair : other.object_value) {
+				temp_object_value[pair.first] = new JsonValue(*pair.second);
+			}
+			object_value = std::move(temp_object_value);
+		} catch (...) {
+			for (auto& pair : temp_object_value) {
+				delete pair.second;
+			}
+			throw;
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue other) {
+		std::swap(type, other.type);
+		std::swap(boolean_value, other.boolean_value);
+		std::swap(number_value, other.number_value);
+		std::swap(string_value, other.string_value);
+		std::swap(array_value, other.array_value);
+		std::swap(object_value, other.object_value);
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+
 	std::string ToString() const{
 		switch (type)
 		{
@@ -42,6 +80,7 @@ struct JsonValue{
 			case JsonValueType::Object:
 				return ObjectToString(object_value);
 		}
+		return "";
 	}
 
 
