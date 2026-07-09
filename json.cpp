@@ -167,30 +167,37 @@ std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::s
 	SkipWhitespace(json_string, index);
 	ExpectChar(json_string, index, '{');
 	SkipWhitespace(json_string,index);
-	while(index < json_string.length() && json_string[index] != '}')
-	{
-		std::string key = ParseString(json_string, index);
-		SkipWhitespace(json_string, index);
-		ExpectChar(json_string, index, ':');
-		SkipWhitespace(json_string, index);
-		JsonValue* val = new JsonValue(ParseValue(json_string,index));
-		object[key] = val;
-		SkipWhitespace(json_string, index);
-
-		if(index < json_string.length())
+	try {
+		while(index < json_string.length() && json_string[index] != '}')
 		{
-			char c = json_string[index];
-			if(c==',')
+			std::string key = ParseString(json_string, index);
+			SkipWhitespace(json_string, index);
+			ExpectChar(json_string, index, ':');
+			SkipWhitespace(json_string, index);
+			JsonValue* val = new JsonValue(ParseValue(json_string,index));
+			object[key] = val;
+			SkipWhitespace(json_string, index);
+
+			if(index < json_string.length())
 			{
-				++index;
-				SkipWhitespace(json_string, index);
+				char c = json_string[index];
+				if(c==',')
+				{
+					++index;
+					SkipWhitespace(json_string, index);
+				}
+				else if (c == '}')
+					break;
+				else throw JsonParseException("Expected ',' or '}' while parsing object");
 			}
-			else if (c == '}')
-				break;
-			else throw JsonParseException("Expected ',' or '}' while parsing object");
 		}
+		ExpectChar(json_string, index, '}');
+	} catch (...) {
+		for (auto& kv : object) {
+			delete kv.second;
+		}
+		throw;
 	}
-	ExpectChar(json_string, index, '}');
 	return object;
 }
 
