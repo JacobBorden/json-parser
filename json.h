@@ -20,6 +20,45 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		try {
+			for (const auto& kv : other.object_value) {
+				auto& ref = object_value[kv.first];
+				ref = new JsonValue(*kv.second);
+			}
+		} catch (...) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			throw;
+		}
+	}
+
+	void swap(JsonValue& other) noexcept {
+		std::swap(type, other.type);
+		std::swap(boolean_value, other.boolean_value);
+		std::swap(number_value, other.number_value);
+		std::swap(string_value, other.string_value);
+		std::swap(array_value, other.array_value);
+		std::swap(object_value, other.object_value);
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(JsonValueType::Null), boolean_value(false), number_value(0.0) {
+		swap(other);
+	}
+
+	JsonValue& operator=(JsonValue other) {
+		swap(other);
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
