@@ -6,6 +6,10 @@ enable_testing()
 
 add_library(json_parser json.cpp)
 
+add_executable(test_memory test_memory.cpp)
+target_link_libraries(test_memory PRIVATE json_parser)
+add_test(NAME TestMemory COMMAND test_memory)
+
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
