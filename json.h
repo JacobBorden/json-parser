@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <cmath>
 #include "json_exception.h"
+#include <utility>
+
 enum class JsonValueType{
 	Null,
 	Boolean,
@@ -19,7 +21,52 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		FreeObjectValue();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (other.type == JsonValueType::Object) {
+			try {
+				for (const auto& kv : other.object_value) {
+					auto& ref = object_value[kv.first];
+					ref = new JsonValue(*(kv.second));
+				}
+			} catch (...) {
+				FreeObjectValue();
+				throw;
+			}
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.object_value.clear();
+	}
+
+	JsonValue& operator=(JsonValue other) noexcept {
+		swap(other);
+		return *this;
+	}
+
+	void swap(JsonValue& other) noexcept {
+		std::swap(type, other.type);
+		std::swap(boolean_value, other.boolean_value);
+		std::swap(number_value, other.number_value);
+		std::swap(string_value, other.string_value);
+		std::swap(array_value, other.array_value);
+		std::swap(object_value, other.object_value);
+	}
+
+	void FreeObjectValue() noexcept {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
