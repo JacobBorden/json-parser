@@ -19,13 +19,58 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		FreeMemory();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		try {
+			for (const auto& kv : other.object_value) {
+				auto& ref = object_value[kv.first];
+				ref = new JsonValue(*kv.second);
+			}
+		} catch (...) {
+			FreeMemory();
+			throw;
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.object_value.clear(); // Ensure moved-from object doesn't delete pointers it no longer owns
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		JsonValue temp(other);
+		swap(*this, temp);
+		return *this;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		JsonValue temp(std::move(other));
+		swap(*this, temp);
+		return *this;
+	}
+
+	friend void swap(JsonValue& first, JsonValue& second) noexcept {
+		using std::swap;
+		swap(first.type, second.type);
+		swap(first.boolean_value, second.boolean_value);
+		swap(first.number_value, second.number_value);
+		swap(first.string_value, second.string_value);
+		swap(first.array_value, second.array_value);
+		swap(first.object_value, second.object_value);
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+
 	std::string ToString() const{
 		switch (type)
 		{
@@ -71,6 +116,13 @@ struct JsonValue{
  
 	private:
 	
+	void FreeMemory() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+	}
+
 	std::string ArrayToString(const std::vector<JsonValue>& array) const {
 		std::string result = "[";
 		for(size_t i=0; i < array.size(); i++)
