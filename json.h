@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <cmath>
+#include <utility>
 #include "json_exception.h"
 enum class JsonValueType{
 	Null,
@@ -19,7 +20,58 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		if (type == JsonValueType::Object) {
+			for (auto& pair : object_value) {
+				delete pair.second;
+			}
+		}
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (type == JsonValueType::Object) {
+			for (const auto& pair : other.object_value) {
+				try {
+					auto& ref = object_value[pair.first];
+					ref = new JsonValue(*pair.second);
+				} catch (...) {
+					for (auto& created : object_value) {
+						delete created.second;
+					}
+					object_value.clear();
+					throw;
+				}
+			}
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		JsonValue temp(other);
+		Swap(temp);
+		return *this;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		JsonValue temp(std::move(other));
+		Swap(temp);
+		return *this;
+	}
+
+	void Swap(JsonValue& other) noexcept {
+		std::swap(type, other.type);
+		std::swap(boolean_value, other.boolean_value);
+		std::swap(number_value, other.number_value);
+		string_value.swap(other.string_value);
+		array_value.swap(other.array_value);
+		object_value.swap(other.object_value);
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
