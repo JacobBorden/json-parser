@@ -344,22 +344,31 @@ std::string JsonParser::UnicodeCodePointToUtf8(int code_point)
 
 void JsonParser::SkipComment(const std::string& json_string, size_t& index)
 {
-	while (json_string[index] != '\0')
+	while (index < json_string.length())
 	{
 		char c = json_string[index];
-		if(c == '/' && json_string[index +1] == '/')
+		if (c == '/' && index + 1 < json_string.length() && json_string[index + 1] == '/')
 		{
-			while (json_string[index] != '\0' && json_string[index]  != '\n')
-					++index;
-		}
-		else if (c == '/' && json_string[index+1] =='*')
-		{
-			index +=2;
-			while (json_string[index] != '\0' && !(json_string[index] == '*' && json_string[index +1] == '/'))
+			while (index < json_string.length() && json_string[index] != '\n')
 				++index;
-			index +=2;
 		}
-		else break;
+		else if (c == '/' && index + 1 < json_string.length() && json_string[index + 1] == '*')
+		{
+			index += 2;
+			while (index < json_string.length())
+			{
+				if (json_string[index] == '*' && index + 1 < json_string.length() && json_string[index + 1] == '/')
+				{
+					index += 2;
+					break;
+				}
+				++index;
+			}
+		}
+		else
+		{
+			break;
+		}
 	}
-}	
+}
 
