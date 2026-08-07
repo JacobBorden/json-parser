@@ -3,6 +3,7 @@
 #define _JSON_
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <stdexcept>
 #include <cmath>
@@ -19,7 +20,56 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		try {
+			for (const auto& kv : other.object_value) {
+				auto& ref = object_value[kv.first];
+				ref = new JsonValue(*kv.second);
+			}
+		} catch (...) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			throw;
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(other.type),
+		  boolean_value(other.boolean_value),
+		  number_value(other.number_value),
+		  string_value(std::move(other.string_value)),
+		  array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.boolean_value = false;
+		other.number_value = 0.0;
+		other.object_value.clear();
+	}
+
+	JsonValue& operator=(JsonValue other) {
+		Swap(*this, other);
+		return *this;
+	}
+
+	friend void Swap(JsonValue& first, JsonValue& second) noexcept {
+		using std::swap;
+		swap(first.type, second.type);
+		swap(first.boolean_value, second.boolean_value);
+		swap(first.number_value, second.number_value);
+		swap(first.string_value, second.string_value);
+		swap(first.array_value, second.array_value);
+		swap(first.object_value, second.object_value);
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
