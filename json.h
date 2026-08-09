@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <cmath>
+#include <utility>
 #include "json_exception.h"
 enum class JsonValueType{
 	Null,
@@ -19,7 +20,65 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		ClearObject();
+	}
+
+	JsonValue(const JsonValue& other)
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(other.string_value), array_value(other.array_value) {
+		try {
+			for (const auto& kv : other.object_value) {
+				auto& ref = object_value[kv.first];
+				ref = new JsonValue(*kv.second);
+			}
+		} catch (...) {
+			ClearObject();
+			throw;
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(std::move(other.string_value)), array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.object_value.clear();
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			JsonValue temp(other);
+			swap(*this, temp);
+		}
+		return *this;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		JsonValue temp(std::move(other));
+		swap(*this, temp);
+		return *this;
+	}
+
+	friend void swap(JsonValue& first, JsonValue& second) noexcept {
+		using std::swap;
+		swap(first.type, second.type);
+		swap(first.boolean_value, second.boolean_value);
+		swap(first.number_value, second.number_value);
+		swap(first.string_value, second.string_value);
+		swap(first.array_value, second.array_value);
+		swap(first.object_value, second.object_value);
+	}
+
+	void ClearObject() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
@@ -58,7 +117,7 @@ struct JsonValue{
 	const std::vector<JsonValue>& GetArray() const{return array_value;}
 	void SetObject(){type = JsonValueType::Object;}
 	bool IsObject() const { return type == JsonValueType::Object;}
-	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
+	std::unordered_map<std::string, JsonValue*> &GetObject(){return object_value;}
 	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
 	void InsertIntoObject(const std::string& key , JsonValue* value){
 		if (type != JsonValueType::Object){
