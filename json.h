@@ -20,6 +20,48 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (type == JsonValueType::Object) {
+			try {
+				for (const auto& kv : other.object_value) {
+					auto& ref = object_value[kv.first];
+					ref = new JsonValue(*kv.second);
+				}
+			} catch (...) {
+				for (auto& kv : object_value) {
+					delete kv.second;
+				}
+				throw;
+			}
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue other) {
+		swap(*this, other);
+		return *this;
+	}
+
+	friend void swap(JsonValue& first, JsonValue& second) noexcept {
+		using std::swap;
+		swap(first.type, second.type);
+		swap(first.boolean_value, second.boolean_value);
+		swap(first.number_value, second.number_value);
+		swap(first.string_value, second.string_value);
+		swap(first.array_value, second.array_value);
+		swap(first.object_value, second.object_value);
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
