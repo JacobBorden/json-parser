@@ -1,2 +1,4 @@
 build/*
 .ccls-cache/*
+build/
+debug_copy
