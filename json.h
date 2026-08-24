@@ -19,7 +19,72 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	// Rule of 5: Destructor
+	~JsonValue() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+	}
+
+	// Rule of 5: Copy Constructor
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		try {
+			for (const auto& kv : other.object_value) {
+				auto& ref = object_value[kv.first];
+				ref = new JsonValue(*kv.second);
+			}
+		} catch (...) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			throw;
+		}
+	}
+
+	// Rule of 5: Move Constructor
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	// Rule of 5: Copy Assignment Operator
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			JsonValue temp(other);
+			swap(*this, temp);
+		}
+		return *this;
+	}
+
+	// Rule of 5: Move Assignment Operator
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
+	// Swap helper for copy-and-swap idiom
+	friend void swap(JsonValue& a, JsonValue& b) noexcept {
+		using std::swap;
+		swap(a.type, b.type);
+		swap(a.boolean_value, b.boolean_value);
+		swap(a.number_value, b.number_value);
+		swap(a.string_value, b.string_value);
+		swap(a.array_value, b.array_value);
+		swap(a.object_value, b.object_value);
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
