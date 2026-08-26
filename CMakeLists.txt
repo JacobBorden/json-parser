@@ -6,6 +6,10 @@ enable_testing()
 
 add_library(json_parser json.cpp)
 
+add_executable(test_json_value test_json_value.cpp)
+target_link_libraries(test_json_value json_parser)
+add_test(NAME TestJsonValue COMMAND test_json_value)
+
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
