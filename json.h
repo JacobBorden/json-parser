@@ -19,7 +19,50 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+	}
+
+	JsonValue(const JsonValue& other)
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(other.string_value), array_value(other.array_value) {
+		for (const auto& kv : other.object_value) {
+			try {
+				auto& ref = object_value[kv.first];
+				ref = new JsonValue(*kv.second);
+			} catch (...) {
+				for (auto& clean_kv : object_value) {
+					delete clean_kv.second;
+				}
+				object_value.clear();
+				throw;
+			}
+		}
+	}
+
+	void Swap(JsonValue& other) noexcept {
+		std::swap(type, other.type);
+		std::swap(boolean_value, other.boolean_value);
+		std::swap(number_value, other.number_value);
+		string_value.swap(other.string_value);
+		array_value.swap(other.array_value);
+		object_value.swap(other.object_value);
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(JsonValueType::Null), boolean_value(false), number_value(0.0) {
+		Swap(other);
+	}
+
+	JsonValue& operator=(JsonValue other) {
+		Swap(other);
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
