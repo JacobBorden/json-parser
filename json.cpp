@@ -247,6 +247,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 	double fraction =0.0;
 	if(index < json_string.length() && json_string[index] == '.')
 	{
+		++index;
 		double scale =0.1;
 		while(index < json_string.length() && IsDigit(json_string[index]))
 		{
@@ -259,12 +260,23 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 	double exponent_value = 0;
 	if(index < json_string.length() && (json_string[index] == 'e' || json_string[index] == 'E'))
 	{
+		++index;
 		bool exponent_negative = false;
-		if(json_string[index] == '-')
+		if(index < json_string.length() && json_string[index] == '+')
+		{
+			++index;
+		}
+		else if(index < json_string.length() && json_string[index] == '-')
 		{
 			exponent_negative = true;
 			++index;
 		}
+
+		if(index >= json_string.length() || !IsDigit(json_string[index]))
+		{
+			throw JsonParseException("Expected digit after exponent");
+		}
+
 		unsigned long long exponent =0;
 		while(index < json_string.length() && IsDigit(json_string[index]))
 		{
@@ -273,8 +285,8 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 		}
 
 		if(exponent_negative)
-			exponent_value = 1.0 / std::pow(10.0, exponent);
-		else exponent_value = std::pow(10, exponent);
+			exponent_value = -(double)exponent;
+		else exponent_value = (double)exponent;
 
 	}
 
@@ -282,7 +294,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 
 	if(negative)
 		value = -value;
-	value *= exponent_value;
+	value *= std::pow(10.0, exponent_value);
 
 	return value;
 }
@@ -344,18 +356,18 @@ std::string JsonParser::UnicodeCodePointToUtf8(int code_point)
 
 void JsonParser::SkipComment(const std::string& json_string, size_t& index)
 {
-	while (json_string[index] != '\0')
+	while (index < json_string.length())
 	{
 		char c = json_string[index];
-		if(c == '/' && json_string[index +1] == '/')
+		if(index + 1 < json_string.length() && c == '/' && json_string[index +1] == '/')
 		{
-			while (json_string[index] != '\0' && json_string[index]  != '\n')
+			while (index < json_string.length() && json_string[index] != '\n')
 					++index;
 		}
-		else if (c == '/' && json_string[index+1] =='*')
+		else if (index + 1 < json_string.length() && c == '/' && json_string[index+1] =='*')
 		{
 			index +=2;
-			while (json_string[index] != '\0' && !(json_string[index] == '*' && json_string[index +1] == '/'))
+			while (index < json_string.length() && !(index + 1 < json_string.length() && json_string[index] == '*' && json_string[index +1] == '/'))
 				++index;
 			index +=2;
 		}

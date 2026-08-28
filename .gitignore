@@ -1,2 +1,5 @@
 build/*
 .ccls-cache/*
+test_memory
+test_parse_number
+test_skip_comment
