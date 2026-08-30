@@ -247,6 +247,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 	double fraction =0.0;
 	if(index < json_string.length() && json_string[index] == '.')
 	{
+		++index;
 		double scale =0.1;
 		while(index < json_string.length() && IsDigit(json_string[index]))
 		{
@@ -256,13 +257,15 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 		}
 	}
 
-	double exponent_value = 0;
+	double exponent_value = 1.0;
 	if(index < json_string.length() && (json_string[index] == 'e' || json_string[index] == 'E'))
 	{
+		++index;
 		bool exponent_negative = false;
-		if(json_string[index] == '-')
+		if(index < json_string.length() && (json_string[index] == '-' || json_string[index] == '+'))
 		{
-			exponent_negative = true;
+			if(json_string[index] == '-')
+				exponent_negative = true;
 			++index;
 		}
 		unsigned long long exponent =0;
