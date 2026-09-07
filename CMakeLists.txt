@@ -9,3 +9,7 @@ add_library(json_parser json.cpp)
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
+
+add_executable(test_memory test_memory.cpp)
+target_link_libraries(test_memory json_parser)
+add_test(NAME MemoryTest COMMAND test_memory)
