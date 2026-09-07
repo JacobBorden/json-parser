@@ -14,3 +14,7 @@
 - **Error Handling Details**: Add line and column numbers to `JsonParseException` for better developer experience when debugging malformed JSON.
 - **Pretty Printing**: Add options to `ToString()` to support pretty-printing (with indentation and newlines) instead of only minified output.
 - **UTF-8 Validation**: The parser currently assumes well-formed UTF-8/ASCII but doesn't validate surrogate pairs correctly when parsing `\uXXXX` sequences.
+
+## Test baseline (2026-09-07)
+
+Fractional/exponent and integer parsing, empty/nested arrays, missing values, numeric syntax and trailing-input checks are covered by CTest in PR #97. Ownership/exception-path leaks and Unicode/surrogate correctness remain unresolved; prioritize these in bounded follow-ups.

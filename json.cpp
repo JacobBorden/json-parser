@@ -4,12 +4,17 @@ JsonValue JsonParser::Parse(const std::string& json_string)
 {
 	size_t index =0;
 	SkipComment(json_string, index);
-	return ParseValue(json_string, index);
+	JsonValue value = ParseValue(json_string, index);
+	SkipWhitespace(json_string, index);
+	if (index != json_string.size())
+		throw JsonParseException("Unexpected trailing input");
+	return value;
 }
 
 JsonValue JsonParser::ParseValue(const std::string& json_string, size_t& index)
 {
 	SkipWhitespace(json_string, index);
+	if (index >= json_string.size()) throw JsonParseException("Expected a value");
 	switch(json_string[index])
 	{
 		case 'n':
@@ -200,7 +205,7 @@ std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, si
 	SkipWhitespace(json_string, index);
 	ExpectChar(json_string, index,'[');
 	SkipWhitespace(json_string, index);
-	while(index < json_string.length() && json_string[index] != '[')
+	while(index < json_string.length() && json_string[index] != ']')
 	{
 		JsonValue value = ParseValue(json_string, index);
 		array.push_back(value);
@@ -213,6 +218,7 @@ std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, si
 			{
 				++index;
 				SkipWhitespace(json_string, index);
+				if (index >= json_string.size() || json_string[index] == ']') throw JsonParseException("Expected array value");
 			}
 			else if (c == ']')
 				break;
@@ -225,67 +231,29 @@ std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, si
 
 double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 {
-	SkipWhitespace(json_string, index);
-	// Check to see if the number is negative
-	bool negative = false;
-	if(json_string[index] == '-')
-	{
-		negative = true;
-		++index;
-	}
-
-	//Parse the integer part of the number
-	
-	unsigned long long integer = 0;
-	while(index < json_string.length() && IsDigit(json_string[index]))
-	{
-		integer = integer * 10 + (json_string[index] - '0');
-		++index;
-	}
-
-	//Check for decimal
-	double fraction =0.0;
-	if(index < json_string.length() && json_string[index] == '.')
-	{
-		++index;
-		double scale =0.1;
-		while(index < json_string.length() && IsDigit(json_string[index]))
-		{
-			fraction = fraction + (scale * (json_string[index] - '0'));
-			++index;
-			scale *= 0.1;
-		}
-	}
-
-	double exponent_value = 1.0;
-	if(index < json_string.length() && (json_string[index] == 'e' || json_string[index] == 'E'))
-	{
-		bool exponent_negative = false;
-		if(json_string[index] == '-')
-		{
-			exponent_negative = true;
-			++index;
-		}
-		unsigned long long exponent =0;
-		while(index < json_string.length() && IsDigit(json_string[index]))
-		{
-			exponent = exponent *10 + (json_string[index] - '0');
-			++index;
-		}
-
-		if(exponent_negative)
-			exponent_value = 1.0 / std::pow(10.0, exponent);
-		else exponent_value = std::pow(10, exponent);
-
-	}
-
-	double value = integer + fraction;
-
-	if(negative)
-		value = -value;
-	value *= exponent_value;
-
-	return value;
+    const size_t start = index;
+    if (index < json_string.size() && json_string[index] == '-') ++index;
+    if (index >= json_string.size() || !IsDigit(json_string[index]))
+        throw JsonParseException("Expected number");
+    if (json_string[index] == '0') ++index;
+    else while (index < json_string.size() && IsDigit(json_string[index])) ++index;
+    if (index < json_string.size() && json_string[index] == '.')
+    {
+        ++index;
+        const size_t digits = index;
+        while (index < json_string.size() && IsDigit(json_string[index])) ++index;
+        if (index == digits) throw JsonParseException("Expected fractional digits");
+    }
+    if (index < json_string.size() && (json_string[index] == 'e' || json_string[index] == 'E'))
+    {
+        ++index;
+        if (index < json_string.size() && (json_string[index] == '+' || json_string[index] == '-')) ++index;
+        const size_t digits = index;
+        while (index < json_string.size() && IsDigit(json_string[index])) ++index;
+        if (index == digits) throw JsonParseException("Expected exponent digits");
+    }
+    try { return std::stod(json_string.substr(start, index - start)); }
+    catch (const std::exception&) { throw JsonParseException("Number out of range"); }
 }
 
 bool JsonParser::IsDigit(char c)
@@ -345,19 +313,20 @@ std::string JsonParser::UnicodeCodePointToUtf8(int code_point)
 
 void JsonParser::SkipComment(const std::string& json_string, size_t& index)
 {
-	while (json_string[index] != '\0')
+	while (index < json_string.size())
 	{
 		char c = json_string[index];
-		if(c == '/' && json_string[index +1] == '/')
+		if(c == '/' && index + 1 < json_string.size() && json_string[index +1] == '/')
 		{
-			while (json_string[index] != '\0' && json_string[index]  != '\n')
+			while (index < json_string.size() && json_string[index] != '\n')
 					++index;
 		}
-		else if (c == '/' && json_string[index+1] =='*')
+		else if (c == '/' && index + 1 < json_string.size() && json_string[index+1] =='*')
 		{
 			index +=2;
-			while (json_string[index] != '\0' && !(json_string[index] == '*' && json_string[index +1] == '/'))
+			while (index + 1 < json_string.size() && !(json_string[index] == '*' && json_string[index + 1] == '/'))
 				++index;
+			if (index + 1 >= json_string.size()) throw JsonParseException("Unterminated comment");
 			index +=2;
 		}
 		else break;
