@@ -28,3 +28,8 @@ This project is a minimal JSON parser written in C++11 (or later). It consists o
 ### Focus Areas
 - Refer to `TODO.MD` for known issues before writing new features.
 - Special attention is needed on `ParseNumber` logic as it has some structural bugs with index advancing during fractional and exponent parsing.
+## Project operations
+
+Read `PROJECT_MANAGEMENT.md` for the repository baseline, prioritized management work, and verification requirements. Preserve existing TODO.MD and DESIGN.MD as the technical backlog and architecture sources.
+
+Jacob authorized private Slack operations alerts on 2026-09-07. Send meaningful project changes, new blockers, recoveries, and required actions to #codex-ops (C0C01JWQ77Y). Suppress unchanged alerts, record confirmed delivery in task or automation memory, and retain the primary result if Slack is unavailable. Do not post credentials or raw private source material.
