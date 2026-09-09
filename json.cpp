@@ -180,6 +180,11 @@ std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::s
 			ExpectChar(json_string, index, ':');
 			SkipWhitespace(json_string, index);
 			JsonValue* val = new JsonValue(ParseValue(json_string,index));
+			auto existing = object.find(key);
+			if (existing != object.end())
+			{
+				delete existing->second;
+			}
 			object[key] = val;
 			SkipWhitespace(json_string, index);
 
@@ -339,4 +344,3 @@ void JsonParser::SkipComment(const std::string& json_string, size_t& index)
 		else break;
 	}
 }	
-

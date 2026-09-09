@@ -20,11 +20,13 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null)
+		: type(type_), boolean_value(false), number_value(0.0){}
 
 	~JsonValue() { Clear(); }
 
-	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+	JsonValue(const JsonValue& other)
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
 		try {
 			for (const auto& pair : other.object_value) {
 				auto& ref = object_value[pair.first];
@@ -107,6 +109,10 @@ struct JsonValue{
 	void InsertIntoObject(const std::string& key , JsonValue* value){
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
+		}
+		auto existing = object_value.find(key);
+		if (existing != object_value.end() && existing->second != value){
+			delete existing->second;
 		}
 		object_value[key] = value;
 	}
