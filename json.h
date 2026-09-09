@@ -20,12 +20,76 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		ClearObject();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (type == JsonValueType::Object) {
+			try {
+				for (const auto& kv : other.object_value) {
+					object_value[kv.first] = new JsonValue(*kv.second);
+				}
+			} catch (...) {
+				ClearObject();
+				throw;
+			}
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			JsonValue tmp(other);
+			ClearObject();
+			type = std::move(tmp.type);
+			boolean_value = std::move(tmp.boolean_value);
+			number_value = std::move(tmp.number_value);
+			string_value = std::move(tmp.string_value);
+			array_value = std::move(tmp.array_value);
+			object_value = std::move(tmp.object_value);
+
+			tmp.type = JsonValueType::Null;
+			tmp.object_value.clear();
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(std::move(other.type)),
+		  boolean_value(std::move(other.boolean_value)),
+		  number_value(std::move(other.number_value)),
+		  string_value(std::move(other.string_value)),
+		  array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.object_value.clear();
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			ClearObject();
+
+			type = std::move(other.type);
+			boolean_value = std::move(other.boolean_value);
+			number_value = std::move(other.number_value);
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+
+			other.type = JsonValueType::Null;
+			other.object_value.clear();
+		}
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+
 	std::string ToString() const{
 		switch (type)
 		{
@@ -70,7 +134,15 @@ struct JsonValue{
 
  
 	private:
-	
+	void ClearObject() {
+		if (type == JsonValueType::Object) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			object_value.clear();
+		}
+	}
+
 	std::string ArrayToString(const std::vector<JsonValue>& array) const {
 		std::string result = "[";
 		for(size_t i=0; i < array.size(); i++)
