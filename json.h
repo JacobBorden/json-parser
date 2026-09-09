@@ -20,12 +20,62 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		FreeObjectMap();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		try {
+			for (const auto& pair : other.object_value) {
+				object_value[pair.first] = new JsonValue(*pair.second);
+			}
+		} catch (...) {
+			FreeObjectMap();
+			throw;
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			JsonValue temp(other);
+			*this = std::move(temp);
+		}
+		return *this;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			FreeObjectMap();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+
+	void FreeObjectMap() {
+		for (auto& pair : object_value) {
+			delete pair.second;
+		}
+		object_value.clear();
+	}
+
 	std::string ToString() const{
 		switch (type)
 		{
