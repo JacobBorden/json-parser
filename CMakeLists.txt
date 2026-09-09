@@ -20,3 +20,7 @@ endif()
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
+
+add_executable(test_memory_leak test_memory_leak.cpp)
+add_test(NAME test_memory_leak COMMAND test_memory_leak)
+target_link_libraries(test_memory_leak json_parser)
