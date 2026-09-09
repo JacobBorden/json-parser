@@ -166,9 +166,9 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 	return result;
 }
 
-std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::string& json_string, size_t& index)
+std::unordered_map<std::string, std::unique_ptr<JsonValue>> JsonParser::ParseObject(const std::string& json_string, size_t& index)
 {
-	std::unordered_map <std::string, JsonValue*> object;
+	std::unordered_map <std::string, std::unique_ptr<JsonValue>> object;
 	SkipWhitespace(json_string, index);
 	ExpectChar(json_string, index, '{');
 	SkipWhitespace(json_string,index);
@@ -178,8 +178,8 @@ std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::s
 		SkipWhitespace(json_string, index);
 		ExpectChar(json_string, index, ':');
 		SkipWhitespace(json_string, index);
-		JsonValue* val = new JsonValue(ParseValue(json_string,index));
-		object[key] = val;
+		std::unique_ptr<JsonValue> val = std::make_unique<JsonValue>(ParseValue(json_string,index));
+		object[key] = std::move(val);
 		SkipWhitespace(json_string, index);
 
 		if(index < json_string.length())

@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <cmath>
+#include <memory>
 #include "json_exception.h"
 enum class JsonValueType{
 	Null,
@@ -19,13 +20,41 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	// Rule of 5
+	~JsonValue() = default;
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		for (const auto& kv : other.object_value) {
+			object_value[kv.first] = std::make_unique<JsonValue>(*kv.second);
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			object_value.clear();
+			for (const auto& kv : other.object_value) {
+				object_value[kv.first] = std::make_unique<JsonValue>(*kv.second);
+			}
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept = default;
+	JsonValue& operator=(JsonValue&& other) noexcept = default;
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
 	std::string string_value;
 	std::vector<JsonValue> array_value;
-	std::unordered_map<std::string, JsonValue* > object_value;
+	std::unordered_map<std::string, std::unique_ptr<JsonValue>> object_value;
 	std::string ToString() const{
 		switch (type)
 		{
@@ -41,6 +70,8 @@ struct JsonValue{
 				return ArrayToString(array_value);
 			case JsonValueType::Object:
 				return ObjectToString(object_value);
+			default:
+				return "";
 		}
 	}
 
@@ -58,13 +89,13 @@ struct JsonValue{
 	const std::vector<JsonValue>& GetArray() const{return array_value;}
 	void SetObject(){type = JsonValueType::Object;}
 	bool IsObject() const { return type == JsonValueType::Object;}
-	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
-	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
-	void InsertIntoObject(const std::string& key , JsonValue* value){
+	std::unordered_map<std::string, std::unique_ptr<JsonValue>> &GetObJect(){return object_value;}
+	const std::unordered_map<std::string, std::unique_ptr<JsonValue>> &GetObject() const {return object_value;}
+	void InsertIntoObject(const std::string& key , std::unique_ptr<JsonValue> value){
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-		object_value[key] = value;
+		object_value[key] = std::move(value);
 	}
 
 
@@ -84,7 +115,7 @@ struct JsonValue{
 		return result;
 	}
 	
-	std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object) const{
+	std::string ObjectToString(const std::unordered_map<std::string, std::unique_ptr<JsonValue>>& object) const{
 		std::string result ="{";
 		bool first = true;
 		for(const auto& kv: object)
@@ -109,7 +140,7 @@ class JsonParser{
 		static std::string ParseString(const std::string& json_string, size_t& index);
 		static double ParseNumber(const std::string& json_string, size_t& index);
 		static std::vector<JsonValue> ParseArray(const std::string& json_string, size_t& index);
-		static std::unordered_map<std::string, JsonValue*> ParseObject(const std::string& json_string, size_t& index);
+		static std::unordered_map<std::string, std::unique_ptr<JsonValue>> ParseObject(const std::string& json_string, size_t& index);
 		static bool ParseBoolean(const std::string& json_string, size_t& index);
 		static void ParseNull(const std::string& json_string, size_t& index);
 		static void SkipWhitespace(const std::string& json_string, size_t& index);
