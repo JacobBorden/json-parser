@@ -40,9 +40,15 @@ int main(int argc, char **argv) {
       Check(v.GetArray().size() == 3);
       Check(v.GetArray()[1].GetArray().size() == 2);
       Check(v.GetArray()[2].GetNumber() == 200);
+      auto scalars = JsonParser::Parse("[null, true, \"x\"]");
+      Check(scalars.GetArray()[1].GetBoolean());
+      Check(scalars.GetArray()[2].GetString() == "x");
+      auto object = JsonParser::Parse("{\"a\": 1, \"a\": 2}");
+      Check(object.GetObject().at("a")->GetNumber() == 2);
     } else if (group == "invalid") {
       for (auto s : {"", " ", "-", "01", "1.", "1e", "1e+", "1e9999",
-                     "true false", "null!", "[", "[1", "/*", "[1,]"})
+                     "true false", "null!", "[", "[1", "/*", "[1,]",
+                     "{\"a\": 1"})
         Reject(s);
     } else
       throw std::runtime_error("unknown group");
