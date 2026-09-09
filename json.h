@@ -20,6 +20,35 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		FreeObject();
+	}
+
+	JsonValue(const JsonValue& other) {
+		CopyFrom(other);
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			FreeObject();
+			CopyFrom(other);
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept {
+		MoveFrom(std::move(other));
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			FreeObject();
+			MoveFrom(std::move(other));
+		}
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
@@ -70,6 +99,50 @@ struct JsonValue{
 
  
 	private:
+
+	void FreeObject() {
+		if (type == JsonValueType::Object) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			object_value.clear();
+		}
+	}
+
+	void CopyFrom(const JsonValue& other) {
+		type = other.type;
+		switch (type) {
+			case JsonValueType::Null:
+				break;
+			case JsonValueType::Boolean:
+				boolean_value = other.boolean_value;
+				break;
+			case JsonValueType::Number:
+				number_value = other.number_value;
+				break;
+			case JsonValueType::String:
+				string_value = other.string_value;
+				break;
+			case JsonValueType::Array:
+				array_value = other.array_value;
+				break;
+			case JsonValueType::Object:
+				for (const auto& kv : other.object_value) {
+					object_value[kv.first] = new JsonValue(*kv.second);
+				}
+				break;
+		}
+	}
+
+	void MoveFrom(JsonValue&& other) {
+		type = other.type;
+		boolean_value = other.boolean_value;
+		number_value = other.number_value;
+		string_value = std::move(other.string_value);
+		array_value = std::move(other.array_value);
+		object_value = std::move(other.object_value);
+		other.type = JsonValueType::Null;
+	}
 	
 	std::string ArrayToString(const std::vector<JsonValue>& array) const {
 		std::string result = "[";

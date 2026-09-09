@@ -1,2 +1,7 @@
 build/*
 .ccls-cache/*
+
+# Executables
+test_exp
+test_fraction
+test_leak
