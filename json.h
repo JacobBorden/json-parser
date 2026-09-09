@@ -20,12 +20,78 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		FreeObjectMemory();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (type == JsonValueType::Object) {
+			try {
+				for (const auto& kv : other.object_value) {
+					object_value[kv.first] = new JsonValue(*kv.second);
+				}
+			} catch (...) {
+				FreeObjectMemory();
+				throw;
+			}
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			FreeObjectMemory();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			if (type == JsonValueType::Object) {
+				try {
+					for (const auto& kv : other.object_value) {
+						object_value[kv.first] = new JsonValue(*kv.second);
+					}
+				} catch (...) {
+					FreeObjectMemory();
+					throw;
+				}
+			}
+		}
+		return *this;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			FreeObjectMemory();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+
+	void FreeObjectMemory() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+	}
+
 	std::string ToString() const{
 		switch (type)
 		{
