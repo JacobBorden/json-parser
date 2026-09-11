@@ -15,6 +15,11 @@ if(BUILD_TESTING)
     add_test(NAME parser_${group} COMMAND parser_tests ${group})
     set_tests_properties(parser_${group} PROPERTIES TIMEOUT 10)
   endforeach()
+
+  add_executable(memory_leak_test tests/memory_leak_test.cpp)
+  target_link_libraries(memory_leak_test PRIVATE json_parser)
+  add_test(NAME memory_leak_test COMMAND memory_leak_test)
+  set_tests_properties(memory_leak_test PROPERTIES TIMEOUT 10)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
