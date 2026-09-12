@@ -169,34 +169,44 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::string& json_string, size_t& index)
 {
 	std::unordered_map <std::string, JsonValue*> object;
-	SkipWhitespace(json_string, index);
-	ExpectChar(json_string, index, '{');
-	SkipWhitespace(json_string,index);
-	while(index < json_string.length() && json_string[index] != '}')
-	{
-		std::string key = ParseString(json_string, index);
+	try {
 		SkipWhitespace(json_string, index);
-		ExpectChar(json_string, index, ':');
-		SkipWhitespace(json_string, index);
-		JsonValue* val = new JsonValue(ParseValue(json_string,index));
-		object[key] = val;
-		SkipWhitespace(json_string, index);
-
-		if(index < json_string.length())
+		ExpectChar(json_string, index, '{');
+		SkipWhitespace(json_string,index);
+		while(index < json_string.length() && json_string[index] != '}')
 		{
-			char c = json_string[index];
-			if(c==',')
+			std::string key = ParseString(json_string, index);
+			SkipWhitespace(json_string, index);
+			ExpectChar(json_string, index, ':');
+			SkipWhitespace(json_string, index);
+
+			JsonValue parsed_val = ParseValue(json_string, index);
+			auto& ref = object[key];
+			ref = new JsonValue(std::move(parsed_val));
+
+			SkipWhitespace(json_string, index);
+
+			if(index < json_string.length())
 			{
-				++index;
-				SkipWhitespace(json_string, index);
+				char c = json_string[index];
+				if(c==',')
+				{
+					++index;
+					SkipWhitespace(json_string, index);
+				}
+				else if (c == '}')
+					break;
+				else throw JsonParseException("Expected ',' or '}' while parsing object");
 			}
-			else if (c == '}')
-				break;
-			else throw JsonParseException("Expected ',' or '}' while parsing object");
 		}
+		ExpectChar(json_string, index, '}');
+		return object;
+	} catch (...) {
+		for (auto& kv : object) {
+			delete kv.second;
+		}
+		throw;
 	}
-	ExpectChar(json_string, index, '}');
-	return object;
 }
 
 std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, size_t& index)
