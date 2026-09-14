@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 #include <stdexcept>
 #include <cmath>
 #include "json_exception.h"
@@ -19,7 +20,7 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
 
 	~JsonValue() {
 		Clear();
@@ -39,9 +40,9 @@ struct JsonValue{
 		}
 	}
 
-	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)) {
+		object_value.swap(other.object_value);
 		other.type = JsonValueType::Null;
-		other.object_value.clear();
 	}
 
 	JsonValue& operator=(JsonValue other) {
@@ -112,7 +113,17 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-		object_value[key] = value;
+		std::unique_ptr<JsonValue> new_value(value);
+		auto result = object_value.emplace(key, new_value.get());
+		if (result.second)
+		{
+			new_value.release();
+		}
+		else
+		{
+			delete result.first->second;
+			result.first->second = new_value.release();
+		}
 	}
 
 
