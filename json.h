@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 #include <stdexcept>
 #include <cmath>
 #include "json_exception.h"
@@ -19,7 +20,55 @@ enum class JsonValueType{
 
 struct JsonValue{
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+
+	~JsonValue() {
+		Clear();
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+		if (other.type == JsonValueType::Object) {
+			try {
+				for (const auto& kv : other.object_value) {
+					auto& ref = object_value[kv.first];
+					ref = new JsonValue(*kv.second);
+				}
+			} catch (...) {
+				Clear();
+				throw;
+			}
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)) {
+		object_value.swap(other.object_value);
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue other) {
+		Swap(other);
+		return *this;
+	}
+
+	void Swap(JsonValue& other) noexcept {
+		std::swap(type, other.type);
+		std::swap(boolean_value, other.boolean_value);
+		std::swap(number_value, other.number_value);
+		std::swap(string_value, other.string_value);
+		std::swap(array_value, other.array_value);
+		std::swap(object_value, other.object_value);
+	}
+
+	void Clear() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+		array_value.clear();
+		string_value.clear();
+		type = JsonValueType::Null;
+	}
+
 	JsonValueType type;
 	bool boolean_value;
 	double number_value;
@@ -45,18 +94,18 @@ struct JsonValue{
 	}
 
 
-	void SetBoolean(bool value){type = JsonValueType::Boolean; boolean_value = value;}
+	void SetBoolean(bool value){Clear(); type = JsonValueType::Boolean; boolean_value = value;}
 	bool GetBoolean() const {return boolean_value;}
-	void SetNumber(double value){type = JsonValueType::Number; number_value = value;}
+	void SetNumber(double value){Clear(); type = JsonValueType::Number; number_value = value;}
 	double GetNumber() const {return number_value;}
-	void SetString(const std::string& value){ type = JsonValueType::String; string_value = value;}
+	void SetString(const std::string& value){Clear(); type = JsonValueType::String; string_value = value;}
 	const std::string& GetString() const { return string_value;}
 	std::string& GetString() {return string_value;}
-	void SetArray(){type = JsonValueType::Array;}
+	void SetArray(){Clear(); type = JsonValueType::Array;}
 	bool IsArray() const { return type == JsonValueType::Array;}
 	std::vector<JsonValue>& GetArray(){ return array_value;}
 	const std::vector<JsonValue>& GetArray() const{return array_value;}
-	void SetObject(){type = JsonValueType::Object;}
+	void SetObject(){Clear(); type = JsonValueType::Object;}
 	bool IsObject() const { return type == JsonValueType::Object;}
 	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
 	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
@@ -64,7 +113,17 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-		object_value[key] = value;
+		std::unique_ptr<JsonValue> new_value(value);
+		auto result = object_value.emplace(key, new_value.get());
+		if (result.second)
+		{
+			new_value.release();
+		}
+		else
+		{
+			delete result.first->second;
+			result.first->second = new_value.release();
+		}
 	}
 
 
