@@ -44,7 +44,8 @@ int main(int argc, char **argv) {
     } else if (group == "invalid") {
       for (auto s : {"", " ", "-", "01", "1.", "1e", "1e+", "1e9999",
                      "true false", "null!", "[", "[1", "/*", "[1,]",
-                     R"("\uD834")", R"("\uDD1E")", R"("\uD834\u0041")"})
+                     R"("\u004z")", R"("\u 041")", R"("\uD834")",
+                     R"("\uDD1E")", R"("\uD834\u0041")"})
         Reject(s);
     } else
       throw std::runtime_error("unknown group");

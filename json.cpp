@@ -136,10 +136,19 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 							throw JsonParseException("Unexpected end of string");
 						}
 						std::string hex_string = json_string.substr(index, 4);
+						if (hex_string.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+						{
+							throw JsonParseException("Invalid Unicode escape sequence");
+						}
 							int code_point = 0;
 						try
 						{
-								code_point = std::stoi(hex_string, nullptr, 16);
+								size_t parsed_characters = 0;
+								code_point = std::stoi(hex_string, &parsed_characters, 16);
+								if (parsed_characters != hex_string.length())
+								{
+									throw JsonParseException("Invalid Unicode escape sequence");
+								}
 						}
 						catch (const std::invalid_argument& ex)
 						{
@@ -152,9 +161,18 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 									throw JsonParseException("Expected low surrogate");
 								}
 								std::string low_hex = json_string.substr(index + 2, 4);
+								if (low_hex.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+								{
+									throw JsonParseException("Invalid Unicode escape sequence");
+								}
 								int low_surrogate = 0;
 								try {
-									low_surrogate = std::stoi(low_hex, nullptr, 16);
+									size_t parsed_characters = 0;
+									low_surrogate = std::stoi(low_hex, &parsed_characters, 16);
+									if (parsed_characters != low_hex.length())
+									{
+										throw JsonParseException("Invalid Unicode escape sequence");
+									}
 								} catch (const std::invalid_argument& ex) {
 									throw JsonParseException("Invalid Unicode escape sequence");
 								}
