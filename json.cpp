@@ -136,16 +136,42 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 							throw JsonParseException("Unexpected end of string");
 						}
 						std::string hex_string = json_string.substr(index, 4);
+							int code_point = 0;
 						try
 						{
-							int code_point = std::stoi(hex_string, nullptr, 16);
-							result += UnicodeCodePointToUtf8(code_point);
+								code_point = std::stoi(hex_string, nullptr, 16);
 						}
 						catch (const std::invalid_argument& ex)
 						{
 							throw JsonParseException("Invalid Unicode escape sequence");
 						}
 						index +=4;
+
+							if (code_point >= 0xD800 && code_point <= 0xDBFF) {
+								if (index + 6 > json_string.length() || json_string[index] != '\\' || json_string[index + 1] != 'u') {
+									throw JsonParseException("Expected low surrogate");
+								}
+								std::string low_hex = json_string.substr(index + 2, 4);
+								int low_surrogate = 0;
+								try {
+									low_surrogate = std::stoi(low_hex, nullptr, 16);
+								} catch (const std::invalid_argument& ex) {
+									throw JsonParseException("Invalid Unicode escape sequence");
+								}
+
+								if (low_surrogate < 0xDC00 || low_surrogate > 0xDFFF) {
+									throw JsonParseException("Invalid low surrogate");
+								}
+								code_point = 0x10000 + ((code_point - 0xD800) << 10) + (low_surrogate - 0xDC00);
+								index += 6;
+							} else if (code_point >= 0xDC00 && code_point <= 0xDFFF) {
+								throw JsonParseException("Invalid unpaired low surrogate");
+							}
+
+							result += UnicodeCodePointToUtf8(code_point);
+							// Decrease index by 1 so that the ++index at the end of the loop
+							// places it at the next character to be parsed.
+							--index;
 						break;
 						}
 					default:

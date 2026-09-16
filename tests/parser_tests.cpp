@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
             "hello\nworld");
       Check(JsonParser::Parse(R"("\"\\\t")").GetString() == "\"\\\t");
+      Check(JsonParser::Parse(R"("\uD834\uDD1E")").GetString() == "\xF0\x9D\x84\x9E");
     } else if (group == "arrays") {
       Check(JsonParser::Parse("[]").GetArray().empty());
       auto v = JsonParser::Parse("[1, [true, null], 2e2]");
@@ -42,7 +43,8 @@ int main(int argc, char **argv) {
       Check(v.GetArray()[2].GetNumber() == 200);
     } else if (group == "invalid") {
       for (auto s : {"", " ", "-", "01", "1.", "1e", "1e+", "1e9999",
-                     "true false", "null!", "[", "[1", "/*", "[1,]"})
+                     "true false", "null!", "[", "[1", "/*", "[1,]",
+                     R"("\uD834")", R"("\uDD1E")", R"("\uD834\u0041")"})
         Reject(s);
     } else
       throw std::runtime_error("unknown group");
