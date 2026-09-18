@@ -47,6 +47,17 @@ int main(int argc, char **argv) {
                      R"("\u004z")", R"("\u 041")", R"("\uD834")",
                      R"("\uDD1E")", R"("\uD834\u0041")"})
         Reject(s);
+    } else if (group == "tostring") {
+      JsonValue str_val;
+      str_val.SetString("hello\nworld\"\t\\");
+      Check(str_val.ToString() == R"("hello\nworld\"\t\\")");
+
+      JsonValue obj_val;
+      obj_val.SetObject();
+      JsonValue* num_val = new JsonValue();
+      num_val->SetNumber(1);
+      obj_val.InsertIntoObject("key\n\"\t\\", num_val);
+      Check(obj_val.ToString() == R"({"key\n\"\t\\": 1.000000})");
     } else
       throw std::runtime_error("unknown group");
   } catch (const std::exception &e) {
