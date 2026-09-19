@@ -85,7 +85,7 @@ struct JsonValue{
 			case JsonValueType::Number:
 				return std::to_string(number_value);
 			case JsonValueType::String:
-				return "\"" +string_value +"\"";
+				return "\"" + EscapeString(string_value) + "\"";
 			case JsonValueType::Array:
 				return ArrayToString(array_value);
 			case JsonValueType::Object:
@@ -130,6 +130,32 @@ struct JsonValue{
  
 	private:
 	
+	static std::string EscapeString(const std::string& input) {
+		std::string result;
+		for (char c : input) {
+			switch (c) {
+				case '\"': result += "\\\""; break;
+				case '\\': result += "\\\\"; break;
+				case '\b': result += "\\b"; break;
+				case '\f': result += "\\f"; break;
+				case '\n': result += "\\n"; break;
+				case '\r': result += "\\r"; break;
+				case '\t': result += "\\t"; break;
+				default:
+					if (static_cast<unsigned char>(c) < 0x20) {
+						result += "\\u00";
+						unsigned char val = static_cast<unsigned char>(c);
+						result += "0123456789abcdef"[val >> 4];
+						result += "0123456789abcdef"[val & 0xF];
+					} else {
+						result += c;
+					}
+					break;
+			}
+		}
+		return result;
+	}
+
 	std::string ArrayToString(const std::vector<JsonValue>& array) const {
 		std::string result = "[";
 		for(size_t i=0; i < array.size(); i++)
@@ -153,7 +179,7 @@ struct JsonValue{
 			}
 			
 			first =false;
-			result +="\""+ kv.first + "\": " + kv.second->ToString();
+			result +="\""+ EscapeString(kv.first) + "\": " + kv.second->ToString();
 		}
 		result +="}";
 		return result;
