@@ -19,6 +19,10 @@ if(BUILD_TESTING)
   add_executable(test_memory_leak tests/test_memory_leak.cpp)
   target_link_libraries(test_memory_leak PRIVATE json_parser)
   add_test(NAME test_memory_leak COMMAND test_memory_leak)
+
+  add_executable(test_serialization tests/test_serialization.cpp)
+  target_link_libraries(test_serialization PRIVATE json_parser)
+  add_test(NAME test_serialization COMMAND test_serialization)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
