@@ -7,6 +7,7 @@
 #include <memory>
 #include <stdexcept>
 #include <cmath>
+#include <cstdio>
 #include "json_exception.h"
 enum class JsonValueType{
 	Null,
@@ -85,12 +86,13 @@ struct JsonValue{
 			case JsonValueType::Number:
 				return std::to_string(number_value);
 			case JsonValueType::String:
-				return "\"" +string_value +"\"";
+				return "\"" + EscapeString(string_value) + "\"";
 			case JsonValueType::Array:
 				return ArrayToString(array_value);
 			case JsonValueType::Object:
 				return ObjectToString(object_value);
 		}
+		return "";
 	}
 
 
@@ -153,9 +155,34 @@ struct JsonValue{
 			}
 			
 			first =false;
-			result +="\""+ kv.first + "\": " + kv.second->ToString();
+			result +="\""+ EscapeString(kv.first) + "\": " + kv.second->ToString();
 		}
 		result +="}";
+		return result;
+	}
+
+	static std::string EscapeString(const std::string& str) {
+		std::string result;
+		for (char c : str) {
+			switch (c) {
+				case '\"': result += "\\\""; break;
+				case '\\': result += "\\\\"; break;
+				case '\b': result += "\\b"; break;
+				case '\f': result += "\\f"; break;
+				case '\n': result += "\\n"; break;
+				case '\r': result += "\\r"; break;
+				case '\t': result += "\\t"; break;
+				default:
+					if (static_cast<unsigned char>(c) < 0x20) {
+						char buf[7];
+						std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+						result += buf;
+					} else {
+						result += c;
+					}
+					break;
+			}
+		}
 		return result;
 	}
 };
