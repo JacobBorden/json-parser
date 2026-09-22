@@ -23,6 +23,10 @@ if(BUILD_TESTING)
   add_executable(test_escape_tostring tests/test_escape_tostring.cpp)
   target_link_libraries(test_escape_tostring PRIVATE json_parser)
   add_test(NAME test_escape_tostring COMMAND test_escape_tostring)
+
+  add_executable(test_error_handling tests/test_error_handling.cpp)
+  target_link_libraries(test_error_handling PRIVATE json_parser)
+  add_test(NAME test_error_handling COMMAND test_error_handling)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
