@@ -28,6 +28,9 @@ int main() {
         CheckError("[\n  1,\n  2\n  3\n]", "Expected ',' or ']' while parsing arraay", 4, 3);
         CheckError("{\n\n\n  \"a\": 1z\n}", "Expected ',' or '}' while parsing object", 4, 9);
         CheckError("{\n\"key\": \"value\\n\\uXYZW\"\n}", "Invalid Unicode escape sequence", 2, 18);
+        CheckError("true\rfalse", "Unexpected trailing input", 2, 1);
+        CheckError("true\nfalse", "Unexpected trailing input", 2, 1);
+        CheckError("true\r\nfalse", "Unexpected trailing input", 2, 1);
         std::cout << "All error handling tests passed.\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << "\n";

@@ -325,9 +325,15 @@ void JsonParser::ThrowError(const std::string& message, const std::string& json_
 	size_t column = 1;
 	for (size_t i = 0; i < index && i < json_string.length(); ++i)
 	{
-		if (json_string[i] == '\n')
+		if (json_string[i] == '\r')
 		{
 			++line;
+			column = 1;
+		}
+		else if (json_string[i] == '\n')
+		{
+			if (i == 0 || json_string[i - 1] != '\r')
+				++line;
 			column = 1;
 		}
 		else
