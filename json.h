@@ -201,8 +201,9 @@ class JsonParser{
 		static void SkipWhitespace(const std::string& json_string, size_t& index);
 		static void ExpectString(const std::string& json_string, size_t& index, const std::string& expected_string);
 		static void ExpectChar(const std::string& json_string, size_t& index, char expected_char);
-		static std::string UnicodeCodePointToUtf8(int code_point);
+		static std::string UnicodeCodePointToUtf8(int code_point, const std::string& json_string, size_t index);
 		static bool IsDigit(char c);
 		static void SkipComment(const std::string& json_string, size_t& index);
+		[[noreturn]] static void ThrowError(const std::string& message, const std::string& json_string, size_t index);
 };
 #endif
