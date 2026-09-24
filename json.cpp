@@ -7,14 +7,14 @@ JsonValue JsonParser::Parse(const std::string& json_string)
 	JsonValue value = ParseValue(json_string, index);
 	SkipWhitespace(json_string, index);
 	if (index != json_string.size())
-		throw JsonParseException("Unexpected trailing input");
+		ThrowError("Unexpected trailing input", json_string, index);
 	return value;
 }
 
 JsonValue JsonParser::ParseValue(const std::string& json_string, size_t& index)
 {
 	SkipWhitespace(json_string, index);
-	if (index >= json_string.size()) throw JsonParseException("Expected a value");
+	if (index >= json_string.size()) ThrowError("Expected a value", json_string, index);
 	switch(json_string[index])
 	{
 		case 'n':
@@ -99,7 +99,7 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 				++index;
 				if(index >= json_string.length())
 				{
-					throw JsonParseException("Unexpected end of character string");
+					ThrowError("Unexpected end of character string", json_string, index);
 				}
 				c = json_string[index];
 				switch(c)
@@ -133,12 +133,12 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 						++index;
 						if(index +4 >=json_string.length())
 						{
-							throw JsonParseException("Unexpected end of string");
+								ThrowError("Unexpected end of string", json_string, index);
 						}
 						std::string hex_string = json_string.substr(index, 4);
 						if (hex_string.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
 						{
-							throw JsonParseException("Invalid Unicode escape sequence");
+								ThrowError("Invalid Unicode escape sequence", json_string, index);
 						}
 							int code_point = 0;
 						try
@@ -147,23 +147,23 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 								code_point = std::stoi(hex_string, &parsed_characters, 16);
 								if (parsed_characters != hex_string.length())
 								{
-									throw JsonParseException("Invalid Unicode escape sequence");
+										ThrowError("Invalid Unicode escape sequence", json_string, index);
 								}
 						}
 						catch (const std::invalid_argument& ex)
 						{
-							throw JsonParseException("Invalid Unicode escape sequence");
+								ThrowError("Invalid Unicode escape sequence", json_string, index);
 						}
 						index +=4;
 
 							if (code_point >= 0xD800 && code_point <= 0xDBFF) {
 								if (index + 6 > json_string.length() || json_string[index] != '\\' || json_string[index + 1] != 'u') {
-									throw JsonParseException("Expected low surrogate");
+										ThrowError("Expected low surrogate", json_string, index);
 								}
 								std::string low_hex = json_string.substr(index + 2, 4);
 								if (low_hex.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
 								{
-									throw JsonParseException("Invalid Unicode escape sequence");
+										ThrowError("Invalid Unicode escape sequence", json_string, index);
 								}
 								int low_surrogate = 0;
 								try {
@@ -171,19 +171,19 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 									low_surrogate = std::stoi(low_hex, &parsed_characters, 16);
 									if (parsed_characters != low_hex.length())
 									{
-										throw JsonParseException("Invalid Unicode escape sequence");
+											ThrowError("Invalid Unicode escape sequence", json_string, index);
 									}
 								} catch (const std::invalid_argument& ex) {
-									throw JsonParseException("Invalid Unicode escape sequence");
+										ThrowError("Invalid Unicode escape sequence", json_string, index);
 								}
 
 								if (low_surrogate < 0xDC00 || low_surrogate > 0xDFFF) {
-									throw JsonParseException("Invalid low surrogate");
+										ThrowError("Invalid low surrogate", json_string, index);
 								}
 								code_point = 0x10000 + ((code_point - 0xD800) << 10) + (low_surrogate - 0xDC00);
 								index += 6;
 							} else if (code_point >= 0xDC00 && code_point <= 0xDFFF) {
-								throw JsonParseException("Invalid unpaired low surrogate");
+									ThrowError("Invalid unpaired low surrogate", json_string, index);
 							}
 
 							result += UnicodeCodePointToUtf8(code_point);
@@ -193,7 +193,7 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 						break;
 						}
 					default:
-						throw JsonParseException("Invalid escape sequence");
+							ThrowError("Invalid escape sequence", json_string, index);
 				}
 			}	
 
@@ -249,7 +249,7 @@ std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::s
 				}
 				else if (c == '}')
 					break;
-				else throw JsonParseException("Expected ',' or '}' while parsing object");
+				else ThrowError("Expected ',' or '}' while parsing object", json_string, index);
 			}
 		}
 		ExpectChar(json_string, index, '}');
@@ -281,11 +281,11 @@ std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, si
 			{
 				++index;
 				SkipWhitespace(json_string, index);
-				if (index >= json_string.size() || json_string[index] == ']') throw JsonParseException("Expected array value");
+				if (index >= json_string.size() || json_string[index] == ']') ThrowError("Expected array value", json_string, index);
 			}
 			else if (c == ']')
 				break;
-			else throw JsonParseException("Expected ',' or ']' while parsing arraay");
+			else ThrowError("Expected ',' or ']' while parsing arraay", json_string, index);
 		}
 	}
 	ExpectChar(json_string, index, ']');
@@ -297,7 +297,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
     const size_t start = index;
     if (index < json_string.size() && json_string[index] == '-') ++index;
     if (index >= json_string.size() || !IsDigit(json_string[index]))
-        throw JsonParseException("Expected number");
+        ThrowError("Expected number", json_string, index);
     if (json_string[index] == '0') ++index;
     else while (index < json_string.size() && IsDigit(json_string[index])) ++index;
     if (index < json_string.size() && json_string[index] == '.')
@@ -305,7 +305,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         ++index;
         const size_t digits = index;
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
-        if (index == digits) throw JsonParseException("Expected fractional digits");
+        if (index == digits) ThrowError("Expected fractional digits", json_string, index);
     }
     if (index < json_string.size() && (json_string[index] == 'e' || json_string[index] == 'E'))
     {
@@ -313,10 +313,35 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         if (index < json_string.size() && (json_string[index] == '+' || json_string[index] == '-')) ++index;
         const size_t digits = index;
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
-        if (index == digits) throw JsonParseException("Expected exponent digits");
+        if (index == digits) ThrowError("Expected exponent digits", json_string, index);
     }
     try { return std::stod(json_string.substr(start, index - start)); }
-    catch (const std::exception&) { throw JsonParseException("Number out of range"); }
+    catch (const std::exception&) { ThrowError("Number out of range", json_string, index); }
+}
+
+void JsonParser::ThrowError(const std::string& message, const std::string& json_string, size_t index)
+{
+	size_t line = 1;
+	size_t column = 1;
+	for (size_t i = 0; i < index && i < json_string.length(); ++i)
+	{
+		if (json_string[i] == '\r')
+		{
+			++line;
+			column = 1;
+		}
+		else if (json_string[i] == '\n')
+		{
+			if (i == 0 || json_string[i - 1] != '\r')
+				++line;
+			column = 1;
+		}
+		else
+		{
+			++column;
+		}
+	}
+	throw JsonParseException(message, line, column);
 }
 
 bool JsonParser::IsDigit(char c)
@@ -328,7 +353,7 @@ void JsonParser::ExpectChar(const std::string& json_string, size_t& index, char 
 {
 	if(index >= json_string.length() || json_string[index] != expected_char)
 	{
-		throw JsonParseException("Unexpected character");
+		ThrowError("Unexpected character", json_string, index);
 	}
 	++index;
 }
@@ -339,7 +364,7 @@ void JsonParser::ExpectString(const std::string& json_string, size_t& index, con
 	{
 		if(index >= json_string.length() || json_string[index] != c)
 		{
-			throw JsonParseException("Unexpected character");
+			ThrowError("Unexpected character", json_string, index);
 		}
 		++index;
 	}
@@ -389,7 +414,7 @@ void JsonParser::SkipComment(const std::string& json_string, size_t& index)
 			index +=2;
 			while (index + 1 < json_string.size() && !(json_string[index] == '*' && json_string[index + 1] == '/'))
 				++index;
-			if (index + 1 >= json_string.size()) throw JsonParseException("Unterminated comment");
+			if (index + 1 >= json_string.size()) ThrowError("Unterminated comment", json_string, index);
 			index +=2;
 		}
 		else break;
