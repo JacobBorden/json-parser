@@ -27,6 +27,10 @@ if(BUILD_TESTING)
   add_executable(test_error_handling tests/test_error_handling.cpp)
   target_link_libraries(test_error_handling PRIVATE json_parser)
   add_test(NAME test_error_handling COMMAND test_error_handling)
+
+  add_executable(test_pretty_print tests/test_pretty_print.cpp)
+  target_link_libraries(test_pretty_print PRIVATE json_parser)
+  add_test(NAME test_pretty_print COMMAND test_pretty_print)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
