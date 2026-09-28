@@ -76,7 +76,7 @@ struct JsonValue{
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
-	std::string ToString() const{
+	std::string ToString(bool pretty = false, int indent = 0) const{
 		switch (type)
 		{
 			case JsonValueType::Null:
@@ -88,11 +88,12 @@ struct JsonValue{
 			case JsonValueType::String:
 				return "\"" + EscapeString(string_value) + "\"";
 			case JsonValueType::Array:
-				return ArrayToString(array_value);
+				return ArrayToString(array_value, pretty, indent);
 			case JsonValueType::Object:
-				return ObjectToString(object_value);
+				return ObjectToString(object_value, pretty, indent);
+			default:
+				return "";
 		}
-		return "";
 	}
 
 
@@ -132,30 +133,44 @@ struct JsonValue{
  
 	private:
 	
-	std::string ArrayToString(const std::vector<JsonValue>& array) const {
+	std::string ArrayToString(const std::vector<JsonValue>& array, bool pretty, int indent) const {
 		std::string result = "[";
+		if (pretty && !array.empty()) result += "\n";
+
 		for(size_t i=0; i < array.size(); i++)
 		{
 			if(i >0){
-				result += ", ";
+				result += pretty ? ",\n" : ", ";
 			}
-			result += array[i].ToString();
+			if (pretty) result += std::string((indent + 1) * 2, ' ');
+			result += array[i].ToString(pretty, indent + 1);
+		}
+
+		if (pretty && !array.empty()) {
+			result += "\n" + std::string(indent * 2, ' ');
 		}
 		result +="]";
 		return result;
 	}
 	
-	std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object) const{
+	std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object, bool pretty, int indent) const{
 		std::string result ="{";
+		if (pretty && !object.empty()) result += "\n";
+
 		bool first = true;
 		for(const auto& kv: object)
 		{
 			if(!first){
-				result += ", ";
+				result += pretty ? ",\n" : ", ";
 			}
 			
 			first =false;
-			result +="\""+ EscapeString(kv.first) + "\": " + kv.second->ToString();
+			if (pretty) result += std::string((indent + 1) * 2, ' ');
+			result +="\""+ EscapeString(kv.first) + "\"" + (pretty ? ": " : ": ") + kv.second->ToString(pretty, indent + 1);
+		}
+
+		if (pretty && !object.empty()) {
+			result += "\n" + std::string(indent * 2, ' ');
 		}
 		result +="}";
 		return result;
