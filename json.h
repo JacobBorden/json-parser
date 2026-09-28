@@ -77,6 +77,9 @@ struct JsonValue{
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
 	std::string ToString(bool pretty = false, int indent = 0) const{
+		if (pretty && (indent < 0 || indent > 100000)) {
+			throw std::invalid_argument("Invalid indentation level");
+		}
 		switch (type)
 		{
 			case JsonValueType::Null:

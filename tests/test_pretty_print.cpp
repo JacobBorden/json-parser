@@ -45,10 +45,24 @@ void TestEmptyPrettyPrint() {
     Check(val_obj.ToString(true) == "{}", "Empty object formatting failed");
 }
 
+void TestInvalidIndentation() {
+    JsonValue val_arr = JsonParser::Parse("[1, 2]");
+    try {
+        val_arr.ToString(true, -1);
+        Check(false, "Expected exception for negative indentation");
+    } catch (const std::invalid_argument&) {}
+
+    try {
+        val_arr.ToString(true, 1000000);
+        Check(false, "Expected exception for excessive indentation");
+    } catch (const std::invalid_argument&) {}
+}
+
 int main() {
     try {
         TestPrettyPrint();
         TestEmptyPrettyPrint();
+        TestInvalidIndentation();
         std::cout << "All pretty print tests passed.\n";
     } catch (const std::exception& exception) {
         std::cerr << exception.what() << std::endl;
