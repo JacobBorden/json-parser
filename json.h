@@ -76,6 +76,31 @@ struct JsonValue{
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
+	static std::string EscapeString(const std::string& input) {
+		std::string result;
+		for (char c : input) {
+			switch (c) {
+				case '"': result += "\\\""; break;
+				case '\\': result += "\\\\"; break;
+				case '\b': result += "\\b"; break;
+				case '\f': result += "\\f"; break;
+				case '\n': result += "\\n"; break;
+				case '\r': result += "\\r"; break;
+				case '\t': result += "\\t"; break;
+				default:
+					if (static_cast<unsigned char>(c) < 0x20) {
+						char buf[7];
+						snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+						result += buf;
+					} else {
+						result += c;
+					}
+					break;
+			}
+		}
+		return result;
+	}
+
 	std::string ToString() const{
 		switch (type)
 		{
