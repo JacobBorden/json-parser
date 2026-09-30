@@ -1,5 +1,6 @@
 #include "../json.h"
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -58,11 +59,20 @@ void TestInvalidIndentation() {
     } catch (const std::invalid_argument&) {}
 }
 
+void TestCompactCompatibility() {
+    JsonValue value = JsonParser::Parse("{\"nested\":[1,2]}");
+    std::string (JsonValue::*legacy_to_string)() const = &JsonValue::ToString;
+    Check((value.*legacy_to_string)() == value.ToString(false), "Legacy ToString signature changed");
+    Check(value.ToString(false, std::numeric_limits<int>::max()) == value.ToString(),
+          "Compact output should ignore indentation");
+}
+
 int main() {
     try {
         TestPrettyPrint();
         TestEmptyPrettyPrint();
         TestInvalidIndentation();
+        TestCompactCompatibility();
         std::cout << "All pretty print tests passed.\n";
     } catch (const std::exception& exception) {
         std::cerr << exception.what() << std::endl;

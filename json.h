@@ -76,7 +76,10 @@ struct JsonValue{
 	std::string string_value;
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
-	std::string ToString(bool pretty = false, int indent = 0) const{
+	std::string ToString() const{
+		return ToString(false, 0);
+	}
+	std::string ToString(bool pretty, int indent = 0) const{
 		if (pretty && (indent < 0 || indent > 100000)) {
 			throw std::invalid_argument("Invalid indentation level");
 		}
@@ -150,7 +153,7 @@ struct JsonValue{
 				int spaces = (indent + 1) * 2;
 				if (spaces > 0) result += std::string(spaces, ' ');
 			}
-			result += array[i].ToString(pretty, indent + 1);
+			result += array[i].ToString(pretty, pretty ? indent + 1 : 0);
 		}
 		if (pretty) {
 			result += "\n";
@@ -181,7 +184,7 @@ struct JsonValue{
 			}
 			result +="\""+ EscapeString(kv.first) + "\":";
 			result += " "; // Single space unconditionally, handles both pretty and minified
-			result += kv.second->ToString(pretty, indent + 1);
+			result += kv.second->ToString(pretty, pretty ? indent + 1 : 0);
 		}
 		if (pretty) {
 			result += "\n";
