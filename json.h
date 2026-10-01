@@ -77,6 +77,12 @@ struct JsonValue{
 	std::vector<JsonValue> array_value;
 	std::unordered_map<std::string, JsonValue* > object_value;
 	std::string ToString() const{
+		return ToString(false, 0);
+	}
+	std::string ToString(bool pretty, int indent = 0) const{
+		if (pretty && (indent < 0 || indent > 100000)) {
+			throw std::invalid_argument("Invalid indentation level");
+		}
 		switch (type)
 		{
 			case JsonValueType::Null:
@@ -88,9 +94,9 @@ struct JsonValue{
 			case JsonValueType::String:
 				return "\"" + EscapeString(string_value) + "\"";
 			case JsonValueType::Array:
-				return ArrayToString(array_value);
+				return ArrayToString(array_value, pretty, indent);
 			case JsonValueType::Object:
-				return ObjectToString(object_value);
+				return ObjectToString(object_value, pretty, indent);
 		}
 		return "";
 	}
@@ -132,30 +138,58 @@ struct JsonValue{
  
 	private:
 	
-	std::string ArrayToString(const std::vector<JsonValue>& array) const {
+	std::string ArrayToString(const std::vector<JsonValue>& array, bool pretty, int indent) const {
+		if (array.empty()) return "[]";
 		std::string result = "[";
+		if (pretty) result += "\n";
 		for(size_t i=0; i < array.size(); i++)
 		{
 			if(i >0){
-				result += ", ";
+				result += ",";
+				if (pretty) result += "\n";
+				else result += " ";
 			}
-			result += array[i].ToString();
+			if (pretty) {
+				int spaces = (indent + 1) * 2;
+				if (spaces > 0) result += std::string(spaces, ' ');
+			}
+			result += array[i].ToString(pretty, pretty ? indent + 1 : 0);
+		}
+		if (pretty) {
+			result += "\n";
+			int spaces = indent * 2;
+			if (spaces > 0) result += std::string(spaces, ' ');
 		}
 		result +="]";
 		return result;
 	}
 	
-	std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object) const{
+	std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object, bool pretty, int indent) const{
+		if (object.empty()) return "{}";
 		std::string result ="{";
+		if (pretty) result += "\n";
 		bool first = true;
 		for(const auto& kv: object)
 		{
 			if(!first){
-				result += ", ";
+				result += ",";
+				if (pretty) result += "\n";
+				else result += " ";
 			}
 			
 			first =false;
-			result +="\""+ EscapeString(kv.first) + "\": " + kv.second->ToString();
+			if (pretty) {
+				int spaces = (indent + 1) * 2;
+				if (spaces > 0) result += std::string(spaces, ' ');
+			}
+			result +="\""+ EscapeString(kv.first) + "\":";
+			result += " "; // Single space unconditionally, handles both pretty and minified
+			result += kv.second->ToString(pretty, pretty ? indent + 1 : 0);
+		}
+		if (pretty) {
+			result += "\n";
+			int spaces = indent * 2;
+			if (spaces > 0) result += std::string(spaces, ' ');
 		}
 		result +="}";
 		return result;
