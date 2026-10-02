@@ -5,7 +5,9 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <new>
 #include <stdexcept>
+#include <utility>
 #include <cmath>
 #include <cstdio>
 #include "json_exception.h"
@@ -152,7 +154,12 @@ struct JsonValue{
 	bool GetBoolean() const {return boolean_value;}
 	void SetNumber(double value){Clear(); type = JsonValueType::Number; number_value = value;}
 	double GetNumber() const {return number_value;}
-	void SetString(const std::string& value){Clear(); new (&string_value) std::string(value); type = JsonValueType::String;}
+	void SetString(const std::string& value){
+		std::string new_value(value);
+		Clear();
+		new (&string_value) std::string(std::move(new_value));
+		type = JsonValueType::String;
+	}
 	const std::string& GetString() const { return string_value;}
 	std::string& GetString() {return string_value;}
 	void SetArray(){Clear(); new (&array_value) std::vector<JsonValue>(); type = JsonValueType::Array;}
