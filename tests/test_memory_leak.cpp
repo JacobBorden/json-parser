@@ -43,8 +43,17 @@ void TestDuplicateObjectKey() {
     Check(val.GetObject().at("key")->GetNumber() == 2.0);
 }
 
+void TestStringSelfAssignment() {
+    JsonValue value;
+    const std::string expected(256, 'x');
+    value.SetString(expected);
+    value.SetString(value.GetString());
+    Check(value.GetString() == expected);
+}
+
 int main() {
     try {
+        TestStringSelfAssignment();
         for (int i = 0; i < 10000; ++i) {
             TestOwnershipOperations();
             TestParseException();
