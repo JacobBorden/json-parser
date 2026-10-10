@@ -199,7 +199,53 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 
 		else
 		{
-			result += c;
+			const unsigned char lead = static_cast<unsigned char>(c);
+			if (lead < 0x20)
+			{
+				ThrowError("Unescaped control character", json_string, index);
+			}
+			if (lead < 0x80)
+			{
+				result += c;
+			}
+			else
+			{
+				size_t length = 0;
+				unsigned char second_min = 0x80;
+				unsigned char second_max = 0xBF;
+				if (lead >= 0xC2 && lead <= 0xDF) length = 2;
+				else if (lead >= 0xE0 && lead <= 0xEF)
+				{
+					length = 3;
+					if (lead == 0xE0) second_min = 0xA0;
+					if (lead == 0xED) second_max = 0x9F;
+				}
+				else if (lead >= 0xF0 && lead <= 0xF4)
+				{
+					length = 4;
+					if (lead == 0xF0) second_min = 0x90;
+					if (lead == 0xF4) second_max = 0x8F;
+				}
+				if (length == 0 || length > json_string.length() - index)
+				{
+					ThrowError("Invalid UTF-8 sequence", json_string, index);
+				}
+				const unsigned char second = static_cast<unsigned char>(json_string[index + 1]);
+				if (second < second_min || second > second_max)
+				{
+					ThrowError("Invalid UTF-8 sequence", json_string, index + 1);
+				}
+				for (size_t offset = 2; offset < length; ++offset)
+				{
+					const unsigned char continuation = static_cast<unsigned char>(json_string[index + offset]);
+					if (continuation < 0x80 || continuation > 0xBF)
+					{
+						ThrowError("Invalid UTF-8 sequence", json_string, index + offset);
+					}
+				}
+				result.append(json_string, index, length);
+				index += length - 1;
+			}
 		}
 			
 		++index;

@@ -35,6 +35,22 @@ int main(int argc, char **argv) {
             "hello\nworld");
       Check(JsonParser::Parse(R"("\"\\\t")").GetString() == "\"\\\t");
       Check(JsonParser::Parse(R"("\uD834\uDD1E")").GetString() == "\xF0\x9D\x84\x9E");
+    } else if (group == "utf8") {
+      for (const std::string bytes : {std::string("\xC2\xA2"), std::string("\xE2\x82\xAC"),
+                                      std::string("\xF0\x9F\x98\x80"), std::string("\xF4\x8F\xBF\xBF")}) {
+        Check(JsonParser::Parse("\"" + bytes + "\"").GetString() == bytes);
+        Check(JsonParser::Parse("{\"" + bytes + "\":true}").GetObject().count(bytes) == 1);
+      }
+      for (const std::string bytes : {std::string("\x80"), std::string("\xC0\x80"),
+                                      std::string("\xC2"), std::string("\xC2\x20"),
+                                      std::string("\xE0\x80\x80"), std::string("\xED\xA0\x80"),
+                                      std::string("\xE2\x82"), std::string("\xE2\x82\x20"),
+                                      std::string("\xF0\x80\x80\x80"), std::string("\xF4\x90\x80\x80"),
+                                      std::string("\xF5\x80\x80\x80"), std::string(1, '\x01')}) {
+        Reject("\"" + bytes + "\"");
+        Reject("{\"" + bytes + "\":true}");
+      }
+      Check(JsonParser::Parse(R"("\uD834\uDD1E")").GetString() == "\xF0\x9D\x84\x9E");
     } else if (group == "arrays") {
       Check(JsonParser::Parse("[]").GetArray().empty());
       auto v = JsonParser::Parse("[1, [true, null], 2e2]");
