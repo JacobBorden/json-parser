@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
   try {
     std::string group = argc > 1 ? argv[1] : "";
     if (group == "literals") {
-      Check(JsonParser::Parse(" null ").type == JsonValueType::Null);
+      Check(JsonParser::Parse(" null ").GetType() == JsonValueType::Null);
       Check(JsonParser::Parse("true").GetBoolean());
       Check(!JsonParser::Parse("false").GetBoolean());
     } else if (group == "numbers") {

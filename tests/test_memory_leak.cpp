@@ -21,7 +21,7 @@ void TestOwnershipOperations() {
 
     JsonValue val4 = std::move(val);
     Check(val4.GetObject().at("key1")->GetNumber() == 1.0);
-    Check(val.type == JsonValueType::Null);
+    Check(val.GetType() == JsonValueType::Null);
 
     val3.SetNumber(5.0);
     Check(val3.GetNumber() == 5.0);
