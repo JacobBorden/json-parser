@@ -31,6 +31,19 @@ if(BUILD_TESTING)
   add_executable(test_pretty_print tests/test_pretty_print.cpp)
   target_link_libraries(test_pretty_print PRIVATE json_parser)
   add_test(NAME test_pretty_print COMMAND test_pretty_print)
+
+  foreach(standard 11 20)
+    add_test(NAME consumer_cxx${standard}
+      COMMAND ${CMAKE_COMMAND}
+        -DCONSUMER_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/consumer
+        -DPARSER_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}
+        -DCONSUMER_BUILD=${CMAKE_CURRENT_BINARY_DIR}/consumer-cxx${standard}
+        -DCONSUMER_STANDARD=${standard}
+        -DCONSUMER_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCONSUMER_GENERATOR=${CMAKE_GENERATOR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/consumer/run.cmake)
+    set_tests_properties(consumer_cxx${standard} PROPERTIES TIMEOUT 60)
+  endforeach()
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
