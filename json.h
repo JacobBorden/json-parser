@@ -115,6 +115,8 @@ struct JsonValue{
 		boolean_value = false;
 	}
 
+	JsonValueType GetType() const { return type; }
+private:
 	JsonValueType type;
 	union {
 		bool boolean_value;
@@ -128,6 +130,7 @@ struct JsonValue{
 
 
 
+public:
 	std::string ToString() const{
 		return ToString(false, 0);
 	}
@@ -155,9 +158,15 @@ struct JsonValue{
 
 
 	void SetBoolean(bool value){Clear(); type = JsonValueType::Boolean; boolean_value = value;}
-	bool GetBoolean() const {return boolean_value;}
+	bool GetBoolean() const {
+		if (type != JsonValueType::Boolean) throw std::logic_error("Not a boolean");
+		return boolean_value;
+	}
 	void SetNumber(double value){Clear(); type = JsonValueType::Number; number_value = value;}
-	double GetNumber() const {return number_value;}
+	double GetNumber() const {
+		if (type != JsonValueType::Number) throw std::logic_error("Not a number");
+		return number_value;
+	}
 	void SetString(const std::string& value){
 		if (type == JsonValueType::String) {
 			string_value = value;
@@ -167,8 +176,14 @@ struct JsonValue{
 			type = JsonValueType::String;
 		}
 	}
-	const std::string& GetString() const { return string_value;}
-	std::string& GetString() {return string_value;}
+	const std::string& GetString() const {
+		if (type != JsonValueType::String) throw std::logic_error("Not a string");
+		return string_value;
+	}
+	std::string& GetString() {
+		if (type != JsonValueType::String) throw std::logic_error("Not a string");
+		return string_value;
+	}
 	void SetArray(){
 		if (type != JsonValueType::Array) {
 			Clear();
@@ -179,8 +194,14 @@ struct JsonValue{
 		}
 	}
 	bool IsArray() const { return type == JsonValueType::Array;}
-	std::vector<JsonValue>& GetArray(){ return array_value;}
-	const std::vector<JsonValue>& GetArray() const{return array_value;}
+	std::vector<JsonValue>& GetArray(){
+		if (type != JsonValueType::Array) throw std::logic_error("Not an array");
+		return array_value;
+	}
+	const std::vector<JsonValue>& GetArray() const{
+		if (type != JsonValueType::Array) throw std::logic_error("Not an array");
+		return array_value;
+	}
 	void SetObject(){
 		if (type != JsonValueType::Object) {
 			Clear();
@@ -194,8 +215,14 @@ struct JsonValue{
 		}
 	}
 	bool IsObject() const { return type == JsonValueType::Object;}
-	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
-	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
+	std::unordered_map<std::string, JsonValue*> &GetObJect(){
+		if (type != JsonValueType::Object) throw std::logic_error("Not an object");
+		return object_value;
+	}
+	const std::unordered_map<std::string, JsonValue*> &GetObject() const {
+		if (type != JsonValueType::Object) throw std::logic_error("Not an object");
+		return object_value;
+	}
 	void InsertIntoObject(const std::string& key , JsonValue* value){
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
