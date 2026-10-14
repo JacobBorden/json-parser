@@ -1,6 +1,8 @@
 #include "json.h"
+#include <cmath>
 #include <functional>
 #include <iostream>
+#include <limits>
 void Check(bool ok) {
   if (!ok)
     throw std::runtime_error("check failed");
@@ -30,6 +32,16 @@ int main(int argc, char **argv) {
                      {"-12.5E-2", -.125}})
         Check(std::abs(JsonParser::Parse(p.first).GetNumber() - p.second) <
               1e-9);
+      Check(JsonParser::Parse("1.7976931348623157e308").GetNumber() ==
+            std::numeric_limits<double>::max());
+      Check(JsonParser::Parse("2.2250738585072014e-308").GetNumber() ==
+            std::numeric_limits<double>::min());
+      Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
+            std::numeric_limits<double>::denorm_min());
+      const double negative_zero = JsonParser::Parse("-0").GetNumber();
+      Check(negative_zero == 0.0 && std::signbit(negative_zero));
+      Reject("1e309");
+      Reject("1e-9999");
     } else if (group == "strings") {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
             "hello\nworld");
