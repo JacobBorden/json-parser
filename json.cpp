@@ -26,32 +26,32 @@ JsonValue JsonParser::ParseValue(const std::string& json_string, size_t& index)
 		case 't':
 		case 'f':
 		{
-			JsonValue value(JsonValueType::Boolean);
-			value.boolean_value = ParseBoolean(json_string, index);
+			JsonValue value;
+			value.SetBoolean(ParseBoolean(json_string, index));
 			return value;
 		}
 		case '"':
 		{
-			JsonValue value(JsonValueType::String);
-			value.string_value = ParseString(json_string, index);
+			JsonValue value;
+			value.SetString(ParseString(json_string, index));
 			return value;
 		}
 		case '{':
 		{
-			JsonValue value(JsonValueType::Object);
-			value.object_value = ParseObject(json_string, index);
+			JsonValue value;
+			value.SetObject(ParseObject(json_string, index));
 			return value;
 		}
 		case '[':
 		{
-			JsonValue value(JsonValueType::Array);
-			value.array_value = ParseArray(json_string, index);
+			JsonValue value;
+			value.SetArray(ParseArray(json_string, index));
 			return value;
 		}
 		default:
 		{
-			JsonValue value(JsonValueType::Number);
-			value.number_value = ParseNumber(json_string, index);
+			JsonValue value;
+			value.SetNumber(ParseNumber(json_string, index));
 			return value;
 		}
 	}
