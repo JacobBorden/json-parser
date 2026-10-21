@@ -179,7 +179,13 @@ struct JsonValue{
 	bool GetBoolean() const {return boolean_value;}
 	void SetNumber(double value){Clear(); number_value = value; type = JsonValueType::Number;}
 	double GetNumber() const {return number_value;}
-	void SetString(const std::string& value){Clear(); new (&string_value) std::string(value); type = JsonValueType::String;}
+	void SetString(const std::string& value){
+		if (type == JsonValueType::String && &string_value == &value) return;
+		std::string temp = value;
+		Clear();
+		new (&string_value) std::string(std::move(temp));
+		type = JsonValueType::String;
+	}
 	const std::string& GetString() const { return string_value;}
 	std::string& GetString() {return string_value;}
 	void SetArray(){Clear(); new (&array_value) std::vector<JsonValue>(); type = JsonValueType::Array;}
