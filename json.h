@@ -20,205 +20,257 @@ enum class JsonValueType{
 
 
 struct JsonValue{
+    using StringType = std::string;
+    using ArrayType = std::vector<JsonValue>;
+    using ObjectType = std::unordered_map<std::string, JsonValue*>;
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+    JsonValueType type;
+    union {
+        bool boolean_value;
+        double number_value;
+        StringType string_value;
+        ArrayType array_value;
+        ObjectType object_value;
+    };
 
-	~JsonValue() {
-		Clear();
-	}
+    JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), number_value(0.0) {
+        if (type == JsonValueType::String) {
+            new (&string_value) StringType();
+        } else if (type == JsonValueType::Array) {
+            new (&array_value) ArrayType();
+        } else if (type == JsonValueType::Object) {
+            new (&object_value) ObjectType();
+        } else if (type == JsonValueType::Boolean) {
+            boolean_value = false;
+        }
+    }
 
-	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
-		if (other.type == JsonValueType::Object) {
-			try {
-				for (const auto& kv : other.object_value) {
-					auto& ref = object_value[kv.first];
-					ref = new JsonValue(*kv.second);
-				}
-			} catch (...) {
-				Clear();
-				throw;
-			}
-		}
-	}
+    ~JsonValue() {
+        Clear();
+    }
 
-	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)) {
-		object_value.swap(other.object_value);
-		other.type = JsonValueType::Null;
-	}
+    JsonValue(const JsonValue& other) : type(other.type), number_value(0.0) {
+        if (type == JsonValueType::Boolean) {
+            boolean_value = other.boolean_value;
+        } else if (type == JsonValueType::Number) {
+            number_value = other.number_value;
+        } else if (type == JsonValueType::String) {
+            new (&string_value) StringType(other.string_value);
+        } else if (type == JsonValueType::Array) {
+            new (&array_value) ArrayType(other.array_value);
+        } else if (type == JsonValueType::Object) {
+            new (&object_value) ObjectType();
+            try {
+                for (const auto& kv : other.object_value) {
+                    auto& ref = object_value[kv.first];
+                    ref = new JsonValue(*kv.second);
+                }
+            } catch (...) {
+                Clear();
+                throw;
+            }
+        }
+    }
 
-	JsonValue& operator=(JsonValue other) {
-		Swap(other);
-		return *this;
-	}
+    JsonValue(JsonValue&& other) noexcept : type(other.type), number_value(0.0) {
+        if (type == JsonValueType::Boolean) {
+            boolean_value = other.boolean_value;
+        } else if (type == JsonValueType::Number) {
+            number_value = other.number_value;
+        } else if (type == JsonValueType::String) {
+            new (&string_value) StringType(std::move(other.string_value));
+        } else if (type == JsonValueType::Array) {
+            new (&array_value) ArrayType(std::move(other.array_value));
+        } else if (type == JsonValueType::Object) {
+            new (&object_value) ObjectType(std::move(other.object_value));
+        }
+        other.Clear();
+    }
 
-	void Swap(JsonValue& other) noexcept {
-		std::swap(type, other.type);
-		std::swap(boolean_value, other.boolean_value);
-		std::swap(number_value, other.number_value);
-		std::swap(string_value, other.string_value);
-		std::swap(array_value, other.array_value);
-		std::swap(object_value, other.object_value);
-	}
+    JsonValue& operator=(JsonValue other) {
+        Swap(other);
+        return *this;
+    }
 
-	void Clear() {
-		for (auto& kv : object_value) {
-			delete kv.second;
-		}
-		object_value.clear();
-		array_value.clear();
-		string_value.clear();
-		type = JsonValueType::Null;
-	}
+    void Swap(JsonValue& other) noexcept {
+        if (type == other.type) {
+            if (type == JsonValueType::Boolean) {
+                std::swap(boolean_value, other.boolean_value);
+            } else if (type == JsonValueType::Number) {
+                std::swap(number_value, other.number_value);
+            } else if (type == JsonValueType::String) {
+                std::swap(string_value, other.string_value);
+            } else if (type == JsonValueType::Array) {
+                std::swap(array_value, other.array_value);
+            } else if (type == JsonValueType::Object) {
+                std::swap(object_value, other.object_value);
+            }
+        } else {
+            alignas(JsonValue) char temp_buf[sizeof(JsonValue)];
+            JsonValue* temp = new (temp_buf) JsonValue(std::move(*this));
+            this->~JsonValue();
+            new (this) JsonValue(std::move(other));
+            other.~JsonValue();
+            new (&other) JsonValue(std::move(*temp));
+            temp->~JsonValue();
+        }
+    }
 
-	JsonValueType type;
-	bool boolean_value;
-	double number_value;
-	std::string string_value;
-	std::vector<JsonValue> array_value;
-	std::unordered_map<std::string, JsonValue* > object_value;
-	std::string ToString() const{
-		return ToString(false, 0);
-	}
-	std::string ToString(bool pretty, int indent = 0) const{
-		if (pretty && (indent < 0 || indent > 100000)) {
-			throw std::invalid_argument("Invalid indentation level");
-		}
-		switch (type)
-		{
-			case JsonValueType::Null:
-				return "null";
-			case JsonValueType::Boolean:
-				return boolean_value ? "true":"false";
-			case JsonValueType::Number:
-				return std::to_string(number_value);
-			case JsonValueType::String:
-				return "\"" + EscapeString(string_value) + "\"";
-			case JsonValueType::Array:
-				return ArrayToString(array_value, pretty, indent);
-			case JsonValueType::Object:
-				return ObjectToString(object_value, pretty, indent);
-		}
-		return "";
-	}
+    void Clear() {
+        if (type == JsonValueType::String) {
+            string_value.~StringType();
+        } else if (type == JsonValueType::Array) {
+            array_value.~ArrayType();
+        } else if (type == JsonValueType::Object) {
+            for (auto& kv : object_value) {
+                delete kv.second;
+            }
+            object_value.~ObjectType();
+        }
+        type = JsonValueType::Null;
+        number_value = 0.0;
+    }
 
+    std::string ToString() const{
+        return ToString(false, 0);
+    }
+    std::string ToString(bool pretty, int indent = 0) const{
+        if (pretty && (indent < 0 || indent > 100000)) {
+            throw std::invalid_argument("Invalid indentation level");
+        }
+        switch (type)
+        {
+            case JsonValueType::Null:
+                return "null";
+            case JsonValueType::Boolean:
+                return boolean_value ? "true":"false";
+            case JsonValueType::Number:
+                return std::to_string(number_value);
+            case JsonValueType::String:
+                return "\"" + EscapeString(string_value) + "\"";
+            case JsonValueType::Array:
+                return ArrayToString(array_value, pretty, indent);
+            case JsonValueType::Object:
+                return ObjectToString(object_value, pretty, indent);
+        }
+        return "";
+    }
 
-	void SetBoolean(bool value){Clear(); type = JsonValueType::Boolean; boolean_value = value;}
-	bool GetBoolean() const {return boolean_value;}
-	void SetNumber(double value){Clear(); type = JsonValueType::Number; number_value = value;}
-	double GetNumber() const {return number_value;}
-	void SetString(const std::string& value){Clear(); type = JsonValueType::String; string_value = value;}
-	const std::string& GetString() const { return string_value;}
-	std::string& GetString() {return string_value;}
-	void SetArray(){Clear(); type = JsonValueType::Array;}
-	bool IsArray() const { return type == JsonValueType::Array;}
-	std::vector<JsonValue>& GetArray(){ return array_value;}
-	const std::vector<JsonValue>& GetArray() const{return array_value;}
-	void SetObject(){Clear(); type = JsonValueType::Object;}
-	bool IsObject() const { return type == JsonValueType::Object;}
-	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
-	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
-	void InsertIntoObject(const std::string& key , JsonValue* value){
-		if (type != JsonValueType::Object){
-			throw JsonParseException("Cannot insert into a non-object value.");
-		}
-		std::unique_ptr<JsonValue> new_value(value);
-		auto result = object_value.emplace(key, new_value.get());
-		if (result.second)
-		{
-			new_value.release();
-		}
-		else
-		{
-			delete result.first->second;
-			result.first->second = new_value.release();
-		}
-	}
+    void SetBoolean(bool value){Clear(); new (&boolean_value) bool(value); type = JsonValueType::Boolean;}
+    bool GetBoolean() const {return boolean_value;}
+    void SetNumber(double value){Clear(); new (&number_value) double(value); type = JsonValueType::Number;}
+    double GetNumber() const {return number_value;}
+    void SetString(const std::string& value){Clear(); new (&string_value) StringType(value); type = JsonValueType::String;}
+    const std::string& GetString() const { return string_value;}
+    std::string& GetString() {return string_value;}
+    void SetArray(){Clear(); new (&array_value) ArrayType(); type = JsonValueType::Array;}
+    bool IsArray() const { return type == JsonValueType::Array;}
+    std::vector<JsonValue>& GetArray(){ return array_value;}
+    const std::vector<JsonValue>& GetArray() const{return array_value;}
+    void SetObject(){Clear(); new (&object_value) ObjectType(); type = JsonValueType::Object;}
+    bool IsObject() const { return type == JsonValueType::Object;}
+    std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
+    const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
+    void InsertIntoObject(const std::string& key , JsonValue* value){
+        if (type != JsonValueType::Object){
+            throw JsonParseException("Cannot insert into a non-object value.");
+        }
+        std::unique_ptr<JsonValue> new_value(value);
+        auto result = object_value.emplace(key, new_value.get());
+        if (result.second)
+        {
+            new_value.release();
+        }
+        else
+        {
+            delete result.first->second;
+            result.first->second = new_value.release();
+        }
+    }
 
+    private:
 
- 
-	private:
-	
-	std::string ArrayToString(const std::vector<JsonValue>& array, bool pretty, int indent) const {
-		if (array.empty()) return "[]";
-		std::string result = "[";
-		if (pretty) result += "\n";
-		for(size_t i=0; i < array.size(); i++)
-		{
-			if(i >0){
-				result += ",";
-				if (pretty) result += "\n";
-				else result += " ";
-			}
-			if (pretty) {
-				int spaces = (indent + 1) * 2;
-				if (spaces > 0) result += std::string(spaces, ' ');
-			}
-			result += array[i].ToString(pretty, pretty ? indent + 1 : 0);
-		}
-		if (pretty) {
-			result += "\n";
-			int spaces = indent * 2;
-			if (spaces > 0) result += std::string(spaces, ' ');
-		}
-		result +="]";
-		return result;
-	}
-	
-	std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object, bool pretty, int indent) const{
-		if (object.empty()) return "{}";
-		std::string result ="{";
-		if (pretty) result += "\n";
-		bool first = true;
-		for(const auto& kv: object)
-		{
-			if(!first){
-				result += ",";
-				if (pretty) result += "\n";
-				else result += " ";
-			}
-			
-			first =false;
-			if (pretty) {
-				int spaces = (indent + 1) * 2;
-				if (spaces > 0) result += std::string(spaces, ' ');
-			}
-			result +="\""+ EscapeString(kv.first) + "\":";
-			result += " "; // Single space unconditionally, handles both pretty and minified
-			result += kv.second->ToString(pretty, pretty ? indent + 1 : 0);
-		}
-		if (pretty) {
-			result += "\n";
-			int spaces = indent * 2;
-			if (spaces > 0) result += std::string(spaces, ' ');
-		}
-		result +="}";
-		return result;
-	}
+    std::string ArrayToString(const std::vector<JsonValue>& array, bool pretty, int indent) const {
+        if (array.empty()) return "[]";
+        std::string result = "[";
+        if (pretty) result += "\n";
+        for(size_t i=0; i < array.size(); i++)
+        {
+            if(i >0){
+                result += ",";
+                if (pretty) result += "\n";
+                else result += " ";
+            }
+            if (pretty) {
+                int spaces = (indent + 1) * 2;
+                if (spaces > 0) result += std::string(spaces, ' ');
+            }
+            result += array[i].ToString(pretty, pretty ? indent + 1 : 0);
+        }
+        if (pretty) {
+            result += "\n";
+            int spaces = indent * 2;
+            if (spaces > 0) result += std::string(spaces, ' ');
+        }
+        result +="]";
+        return result;
+    }
 
-	static std::string EscapeString(const std::string& str) {
-		std::string result;
-		for (char c : str) {
-			switch (c) {
-				case '\"': result += "\\\""; break;
-				case '\\': result += "\\\\"; break;
-				case '\b': result += "\\b"; break;
-				case '\f': result += "\\f"; break;
-				case '\n': result += "\\n"; break;
-				case '\r': result += "\\r"; break;
-				case '\t': result += "\\t"; break;
-				default:
-					if (static_cast<unsigned char>(c) < 0x20) {
-						char buf[7];
-						std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
-						result += buf;
-					} else {
-						result += c;
-					}
-					break;
-			}
-		}
-		return result;
-	}
+    std::string ObjectToString(const std::unordered_map<std::string, JsonValue*>& object, bool pretty, int indent) const{
+        if (object.empty()) return "{}";
+        std::string result ="{";
+        if (pretty) result += "\n";
+        bool first = true;
+        for(const auto& kv: object)
+        {
+            if(!first){
+                result += ",";
+                if (pretty) result += "\n";
+                else result += " ";
+            }
+
+            first =false;
+            if (pretty) {
+                int spaces = (indent + 1) * 2;
+                if (spaces > 0) result += std::string(spaces, ' ');
+            }
+            result +="\""+ EscapeString(kv.first) + "\":";
+            result += " "; // Single space unconditionally, handles both pretty and minified
+            result += kv.second->ToString(pretty, pretty ? indent + 1 : 0);
+        }
+        if (pretty) {
+            result += "\n";
+            int spaces = indent * 2;
+            if (spaces > 0) result += std::string(spaces, ' ');
+        }
+        result +="}";
+        return result;
+    }
+
+    static std::string EscapeString(const std::string& str) {
+        std::string result;
+        for (char c : str) {
+            switch (c) {
+                case '\"': result += "\\\""; break;
+                case '\\': result += "\\\\"; break;
+                case '\b': result += "\\b"; break;
+                case '\f': result += "\\f"; break;
+                case '\n': result += "\\n"; break;
+                case '\r': result += "\\r"; break;
+                case '\t': result += "\\t"; break;
+                default:
+                    if (static_cast<unsigned char>(c) < 0x20) {
+                        char buf[7];
+                        std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+                        result += buf;
+                    } else {
+                        result += c;
+                    }
+                    break;
+            }
+        }
+        return result;
+    }
 };
 
 class JsonParser{
