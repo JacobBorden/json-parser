@@ -31,6 +31,10 @@ if(BUILD_TESTING)
   add_executable(test_pretty_print tests/test_pretty_print.cpp)
   target_link_libraries(test_pretty_print PRIVATE json_parser)
   add_test(NAME test_pretty_print COMMAND test_pretty_print)
+
+  add_executable(test_union_refactor tests/test_union_refactor.cpp)
+  target_link_libraries(test_union_refactor PRIVATE json_parser)
+  add_test(NAME test_union_refactor COMMAND test_union_refactor)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
