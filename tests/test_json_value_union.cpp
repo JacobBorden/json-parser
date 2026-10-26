@@ -6,6 +6,19 @@ void test_constructors() {
     JsonValue v1;
     assert(v1.type == JsonValueType::Null);
 
+    JsonValue v_bool(JsonValueType::Boolean);
+    assert(v_bool.type == JsonValueType::Boolean);
+    assert(v_bool.GetBoolean() == false);
+    assert(v_bool.ToString() == "false");
+
+    JsonValue v_bool_copy(v_bool);
+    assert(v_bool_copy.type == JsonValueType::Boolean);
+    assert(v_bool_copy.GetBoolean() == false);
+
+    JsonValue v_bool_move(std::move(v_bool_copy));
+    assert(v_bool_move.type == JsonValueType::Boolean);
+    assert(v_bool_move.GetBoolean() == false);
+
     JsonValue v2(JsonValueType::Number);
     v2.SetNumber(42.0);
     assert(v2.GetNumber() == 42.0);

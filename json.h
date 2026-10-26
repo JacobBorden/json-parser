@@ -23,7 +23,9 @@ enum class JsonValueType{
 struct JsonValue{
 
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), number_value(0.0) {
-		if (type == JsonValueType::String) {
+		if (type == JsonValueType::Boolean) {
+			boolean_value = false;
+		} else if (type == JsonValueType::String) {
 			new (&string_value) std::string();
 		} else if (type == JsonValueType::Array) {
 			new (&array_value) std::vector<JsonValue>();
