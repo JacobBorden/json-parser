@@ -213,6 +213,7 @@ struct JsonValue{
 	void SetObject(){Clear(); new (&object_value) std::unordered_map<std::string, JsonValue*>(); type = JsonValueType::Object;}
 	bool IsObject() const { return type == JsonValueType::Object;}
 	std::unordered_map<std::string, JsonValue*> &GetObject(){return object_value;}
+	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
 	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
 	void InsertIntoObject(const std::string& key , JsonValue* value){
 		if (type != JsonValueType::Object){
