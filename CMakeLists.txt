@@ -31,6 +31,10 @@ if(BUILD_TESTING)
   add_executable(test_pretty_print tests/test_pretty_print.cpp)
   target_link_libraries(test_pretty_print PRIVATE json_parser)
   add_test(NAME test_pretty_print COMMAND test_pretty_print)
+
+  add_executable(test_getobject_compat tests/test_getobject_compat.cpp)
+  target_link_libraries(test_getobject_compat PRIVATE json_parser)
+  add_test(NAME test_getobject_compat COMMAND test_getobject_compat)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
