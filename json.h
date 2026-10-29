@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <cstdio>
+#include <new>
 #include "json_exception.h"
 enum class JsonValueType{
 	Null,
@@ -20,62 +21,157 @@ enum class JsonValueType{
 
 
 struct JsonValue{
+	using StringType = std::string;
+	using ArrayType = std::vector<JsonValue>;
+	using ObjectType = std::unordered_map<std::string, JsonValue*>;
 
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0) {}
+	JsonValueType type;
+	union {
+		bool boolean_value;
+		double number_value;
+		std::string string_value;
+		std::vector<JsonValue> array_value;
+		std::unordered_map<std::string, JsonValue* > object_value;
+	};
+
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(JsonValueType::Null), number_value(0.0) {
+		switch (type_) {
+			case JsonValueType::Boolean: SetBoolean(false); break;
+			case JsonValueType::Number: SetNumber(0.0); break;
+			case JsonValueType::String: SetString(""); break;
+			case JsonValueType::Array: SetArray(); break;
+			case JsonValueType::Object: SetObject(); break;
+			default: break;
+		}
+	}
 
 	~JsonValue() {
 		Clear();
 	}
 
-	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
-		if (other.type == JsonValueType::Object) {
-			try {
-				for (const auto& kv : other.object_value) {
-					auto& ref = object_value[kv.first];
-					ref = new JsonValue(*kv.second);
+	JsonValue(const JsonValue& other) : type(JsonValueType::Null), number_value(0.0) {
+		switch (other.type) {
+			case JsonValueType::Boolean:
+				SetBoolean(other.boolean_value);
+				break;
+			case JsonValueType::Number:
+				SetNumber(other.number_value);
+				break;
+			case JsonValueType::String:
+				SetString(other.string_value);
+				break;
+			case JsonValueType::Array:
+				SetArray();
+				array_value = other.array_value;
+				break;
+			case JsonValueType::Object:
+				SetObject();
+				try {
+					for (const auto& kv : other.object_value) {
+						auto& ref = object_value[kv.first];
+						ref = new JsonValue(*kv.second);
+					}
+				} catch (...) {
+					Clear();
+					throw;
 				}
-			} catch (...) {
-				Clear();
-				throw;
-			}
+				break;
+			case JsonValueType::Null:
+			default:
+				break;
 		}
 	}
 
-	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)) {
-		object_value.swap(other.object_value);
-		other.type = JsonValueType::Null;
+	JsonValue(JsonValue&& other) noexcept : type(JsonValueType::Null), number_value(0.0) {
+		switch (other.type) {
+			case JsonValueType::Boolean:
+				SetBoolean(other.boolean_value);
+				break;
+			case JsonValueType::Number:
+				SetNumber(other.number_value);
+				break;
+			case JsonValueType::String:
+				new (&string_value) StringType(std::move(other.string_value));
+				type = JsonValueType::String;
+				break;
+			case JsonValueType::Array:
+				new (&array_value) ArrayType(std::move(other.array_value));
+				type = JsonValueType::Array;
+				break;
+			case JsonValueType::Object:
+				new (&object_value) ObjectType(std::move(other.object_value));
+				type = JsonValueType::Object;
+				break;
+			case JsonValueType::Null:
+			default:
+				break;
+		}
+		other.Clear();
 	}
 
-	JsonValue& operator=(JsonValue other) {
+	JsonValue& operator=(JsonValue other) noexcept {
 		Swap(other);
 		return *this;
 	}
 
 	void Swap(JsonValue& other) noexcept {
-		std::swap(type, other.type);
-		std::swap(boolean_value, other.boolean_value);
-		std::swap(number_value, other.number_value);
-		std::swap(string_value, other.string_value);
-		std::swap(array_value, other.array_value);
-		std::swap(object_value, other.object_value);
+		if (this == &other) return;
+		if (type == other.type) {
+			switch (type) {
+				case JsonValueType::Null: break;
+				case JsonValueType::Boolean: std::swap(boolean_value, other.boolean_value); break;
+				case JsonValueType::Number: std::swap(number_value, other.number_value); break;
+				case JsonValueType::String: std::swap(string_value, other.string_value); break;
+				case JsonValueType::Array: std::swap(array_value, other.array_value); break;
+				case JsonValueType::Object: object_value.swap(other.object_value); break;
+			}
+		} else {
+			alignas(JsonValue) char temp_buf[sizeof(JsonValue)];
+			JsonValue* temp = new (temp_buf) JsonValue(std::move(*this));
+
+			Clear();
+			switch (other.type) {
+				case JsonValueType::Boolean: SetBoolean(other.boolean_value); break;
+				case JsonValueType::Number: SetNumber(other.number_value); break;
+				case JsonValueType::String: new (&string_value) StringType(std::move(other.string_value)); type = JsonValueType::String; break;
+				case JsonValueType::Array: new (&array_value) ArrayType(std::move(other.array_value)); type = JsonValueType::Array; break;
+				case JsonValueType::Object: new (&object_value) ObjectType(std::move(other.object_value)); type = JsonValueType::Object; break;
+				case JsonValueType::Null: type = JsonValueType::Null; break;
+			}
+			other.Clear();
+
+			switch (temp->type) {
+				case JsonValueType::Boolean: other.SetBoolean(temp->boolean_value); break;
+				case JsonValueType::Number: other.SetNumber(temp->number_value); break;
+				case JsonValueType::String: new (&other.string_value) StringType(std::move(temp->string_value)); other.type = JsonValueType::String; break;
+				case JsonValueType::Array: new (&other.array_value) ArrayType(std::move(temp->array_value)); other.type = JsonValueType::Array; break;
+				case JsonValueType::Object: new (&other.object_value) ObjectType(std::move(temp->object_value)); other.type = JsonValueType::Object; break;
+				case JsonValueType::Null: other.type = JsonValueType::Null; break;
+			}
+			temp->~JsonValue();
+		}
 	}
 
 	void Clear() {
-		for (auto& kv : object_value) {
-			delete kv.second;
+		switch (type) {
+			case JsonValueType::String:
+				string_value.~StringType();
+				break;
+			case JsonValueType::Array:
+				array_value.~ArrayType();
+				break;
+			case JsonValueType::Object:
+				for (auto& kv : object_value) {
+					delete kv.second;
+				}
+				object_value.~ObjectType();
+				break;
+			default:
+				break;
 		}
-		object_value.clear();
-		array_value.clear();
-		string_value.clear();
 		type = JsonValueType::Null;
 	}
 
-	JsonValueType type;
-	bool boolean_value;
-	double number_value;
-	std::string string_value;
-	std::vector<JsonValue> array_value;
-	std::unordered_map<std::string, JsonValue* > object_value;
 	std::string ToString() const{
 		return ToString(false, 0);
 	}
@@ -102,18 +198,18 @@ struct JsonValue{
 	}
 
 
-	void SetBoolean(bool value){Clear(); type = JsonValueType::Boolean; boolean_value = value;}
+	void SetBoolean(bool value){Clear(); boolean_value = value; type = JsonValueType::Boolean;}
 	bool GetBoolean() const {return boolean_value;}
-	void SetNumber(double value){Clear(); type = JsonValueType::Number; number_value = value;}
+	void SetNumber(double value){Clear(); number_value = value; type = JsonValueType::Number;}
 	double GetNumber() const {return number_value;}
-	void SetString(const std::string& value){Clear(); type = JsonValueType::String; string_value = value;}
+	void SetString(const std::string& value){Clear(); new (&string_value) StringType(value); type = JsonValueType::String;}
 	const std::string& GetString() const { return string_value;}
 	std::string& GetString() {return string_value;}
-	void SetArray(){Clear(); type = JsonValueType::Array;}
+	void SetArray(){Clear(); new (&array_value) ArrayType(); type = JsonValueType::Array;}
 	bool IsArray() const { return type == JsonValueType::Array;}
 	std::vector<JsonValue>& GetArray(){ return array_value;}
 	const std::vector<JsonValue>& GetArray() const{return array_value;}
-	void SetObject(){Clear(); type = JsonValueType::Object;}
+	void SetObject(){Clear(); new (&object_value) ObjectType(); type = JsonValueType::Object;}
 	bool IsObject() const { return type == JsonValueType::Object;}
 	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;}
 	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
