@@ -38,10 +38,15 @@ int main(int argc, char **argv) {
             std::numeric_limits<double>::min());
       Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
             std::numeric_limits<double>::denorm_min());
+      Check(JsonParser::Parse("2.2250738585072009e-308").GetNumber() ==
+            std::nextafter(std::numeric_limits<double>::min(), 0.0));
+      Check(JsonParser::Parse("-4.9406564584124654e-324").GetNumber() ==
+            -std::numeric_limits<double>::denorm_min());
       const double negative_zero = JsonParser::Parse("-0").GetNumber();
       Check(negative_zero == 0.0 && std::signbit(negative_zero));
       Reject("1e309");
       Reject("1e-9999");
+      Reject("-1e-9999");
     } else if (group == "strings") {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
             "hello\nworld");
