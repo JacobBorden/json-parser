@@ -1,4 +1,6 @@
 #include "json.h"
+#include <cerrno>
+#include <cstdlib>
 
 JsonValue JsonParser::Parse(const std::string& json_string)
 {
@@ -315,8 +317,14 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
         if (index == digits) ThrowError("Expected exponent digits", json_string, index);
     }
-    try { return std::stod(json_string.substr(start, index - start)); }
-    catch (const std::exception&) { ThrowError("Number out of range", json_string, index); }
+    const std::string number = json_string.substr(start, index - start);
+    errno = 0;
+    char* end = nullptr;
+    const double value = std::strtod(number.c_str(), &end);
+    if (end != number.c_str() + number.size() || !std::isfinite(value) ||
+        (errno == ERANGE && value == 0.0))
+        ThrowError("Number out of range", json_string, index);
+    return value;
 }
 
 void JsonParser::ThrowError(const std::string& message, const std::string& json_string, size_t index)
