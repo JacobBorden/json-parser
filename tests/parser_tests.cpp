@@ -48,6 +48,14 @@ int main(int argc, char **argv) {
             std::numeric_limits<double>::denorm_min());
       const double negative_zero = JsonParser::Parse("-0").GetNumber();
       Check(negative_zero == 0.0 && std::signbit(negative_zero));
+      for (const char* input : {"-0.0", "-0e10", "-0.0E-10"}) {
+        const double value = JsonParser::Parse(input).GetNumber();
+        Check(value == 0.0 && std::signbit(value));
+      }
+      for (const char* input : {"0", "0.0", "0e10"}) {
+        const double value = JsonParser::Parse(input).GetNumber();
+        Check(value == 0.0 && !std::signbit(value));
+      }
       Reject("1e309");
       Reject("1.7976931348623159e308");
       Reject("2e-324");
