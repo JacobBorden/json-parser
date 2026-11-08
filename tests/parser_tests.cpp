@@ -36,6 +36,8 @@ int main(int argc, char **argv) {
             std::numeric_limits<double>::max());
       Check(JsonParser::Parse("1.7976931348623158e308").GetNumber() ==
             std::numeric_limits<double>::max());
+      Check(JsonParser::Parse("-1.7976931348623158e308").GetNumber() ==
+            -std::numeric_limits<double>::max());
       Check(JsonParser::Parse("2.2250738585072014e-308").GetNumber() ==
             std::numeric_limits<double>::min());
       Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
@@ -46,6 +48,8 @@ int main(int argc, char **argv) {
             -std::numeric_limits<double>::denorm_min());
       Check(JsonParser::Parse("3e-324").GetNumber() ==
             std::numeric_limits<double>::denorm_min());
+      Check(JsonParser::Parse("-3e-324").GetNumber() ==
+            -std::numeric_limits<double>::denorm_min());
       const double negative_zero = JsonParser::Parse("-0").GetNumber();
       Check(negative_zero == 0.0 && std::signbit(negative_zero));
       for (const char* input : {"-0.0", "-0e10", "-0.0E-10"}) {
@@ -58,7 +62,9 @@ int main(int argc, char **argv) {
       }
       Reject("1e309");
       Reject("1.7976931348623159e308");
+      Reject("-1.7976931348623159e308");
       Reject("2e-324");
+      Reject("-2e-324");
       Reject("1e-9999");
       Reject("-1e-9999");
     } else if (group == "strings") {
