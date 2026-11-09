@@ -1,5 +1,6 @@
 #include "json.h"
 #include <cmath>
+#include <cfenv>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -67,6 +68,18 @@ int main(int argc, char **argv) {
       Reject("-2e-324");
       Reject("1e-9999");
       Reject("-1e-9999");
+    } else if (group == "rounding") {
+      const int original_rounding = std::fegetround();
+      Check(original_rounding != -1);
+      struct RestoreRounding {
+        int mode;
+        ~RestoreRounding() { std::fesetround(mode); }
+      } restore{original_rounding};
+      for (int mode : {FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
+        Check(std::fesetround(mode) == 0);
+        Reject("1e309");
+        Reject("-1e309");
+      }
     } else if (group == "strings") {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
             "hello\nworld");

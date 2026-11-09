@@ -1,6 +1,7 @@
 #include "json.h"
 #include <cerrno>
 #include <cstdlib>
+#include <limits>
 
 JsonValue JsonParser::Parse(const std::string& json_string)
 {
@@ -322,7 +323,8 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
     char* end = nullptr;
     const double value = std::strtod(number.c_str(), &end);
     if (end != number.c_str() + number.size() || !std::isfinite(value) ||
-        (errno == ERANGE && value == 0.0))
+        (errno == ERANGE && (value == 0.0 ||
+                             std::abs(value) == std::numeric_limits<double>::max())))
         ThrowError("Number out of range", json_string, index);
     return value;
 }
