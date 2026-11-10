@@ -1,5 +1,6 @@
 #include "json.h"
 #include <cerrno>
+#include <clocale>
 #include <cstdlib>
 #include <limits>
 
@@ -318,7 +319,14 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
         if (index == digits) ThrowError("Expected exponent digits", json_string, index);
     }
-    const std::string number = json_string.substr(start, index - start);
+    std::string number = json_string.substr(start, index - start);
+    const size_t point = number.find('.');
+    if (point != std::string::npos)
+    {
+        const char* decimal_point = std::localeconv()->decimal_point;
+        if (decimal_point != nullptr && decimal_point[0] != '\0')
+            number.replace(point, 1, decimal_point);
+    }
     errno = 0;
     char* end = nullptr;
     const double value = std::strtod(number.c_str(), &end);

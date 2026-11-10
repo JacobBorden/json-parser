@@ -1,6 +1,7 @@
 #include "json.h"
 #include <cmath>
 #include <cfenv>
+#include <clocale>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -68,6 +69,28 @@ int main(int argc, char **argv) {
       Reject("-2e-324");
       Reject("1e-9999");
       Reject("-1e-9999");
+    } else if (group == "locale") {
+      const char* current = std::setlocale(LC_NUMERIC, nullptr);
+      Check(current != nullptr);
+      const std::string original_locale(current);
+      struct RestoreLocale {
+        std::string name;
+        ~RestoreLocale() { std::setlocale(LC_NUMERIC, name.c_str()); }
+      } restore{original_locale};
+      const char* comma_locale = std::setlocale(LC_NUMERIC, "de_DE.utf8");
+      if (comma_locale == nullptr)
+        comma_locale = std::setlocale(LC_NUMERIC, "de_DE.UTF-8");
+      if (comma_locale != nullptr) {
+        Check(std::string(std::localeconv()->decimal_point) == ",");
+        Check(JsonParser::Parse("1.5").GetNumber() == 1.5);
+        Check(JsonParser::Parse("-12.5E-2").GetNumber() == -0.125);
+        Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
+              std::numeric_limits<double>::denorm_min());
+        const double negative_zero = JsonParser::Parse("-0.0").GetNumber();
+        Check(negative_zero == 0.0 && std::signbit(negative_zero));
+        Reject("1,5");
+        Check(JsonParser::Parse("[1,5]").GetArray().size() == 2);
+      }
     } else if (group == "rounding") {
       const int original_rounding = std::fegetround();
       Check(original_rounding != -1);
