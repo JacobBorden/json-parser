@@ -330,8 +330,16 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
     errno = 0;
     char* end = nullptr;
     const double value = std::strtod(number.c_str(), &end);
+    const int conversion_errno = errno;
+    // Some C libraries clamp a decimal beyond the nearest-rounding overflow
+    // threshold to DBL_MAX under directed rounding without setting ERANGE.
+    const long double wide_value = std::strtold(number.c_str(), nullptr);
+    const long double max_double = std::numeric_limits<double>::max();
+    const long double overflow_threshold = max_double +
+        (max_double - std::nextafter(std::numeric_limits<double>::max(), 0.0)) / 2;
     if (end != number.c_str() + number.size() || !std::isfinite(value) ||
-        (errno == ERANGE && (value == 0.0 ||
+        std::abs(wide_value) >= overflow_threshold ||
+        (conversion_errno == ERANGE && (value == 0.0 ||
                              std::abs(value) == std::numeric_limits<double>::max())))
         ThrowError("Number out of range", json_string, index);
     return value;

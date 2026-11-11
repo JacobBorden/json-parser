@@ -102,6 +102,8 @@ int main(int argc, char **argv) {
         Check(std::fesetround(mode) == 0);
         Reject("1e309");
         Reject("-1e309");
+        Reject("1.7976931348623159e308");
+        Reject("-1.7976931348623159e308");
       }
     } else if (group == "strings") {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
