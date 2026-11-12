@@ -337,8 +337,12 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
     const long double max_double = std::numeric_limits<double>::max();
     const long double overflow_threshold = max_double +
         (max_double - std::nextafter(std::numeric_limits<double>::max(), 0.0)) / 2;
+    // An equally wide long double cannot distinguish DBL_MAX from a larger
+    // decimal clamped to it. Leave that case to strtod's range indication.
+    const bool has_wider_precision =
+        std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits;
     if (end != number.c_str() + number.size() || !std::isfinite(value) ||
-        std::abs(wide_value) >= overflow_threshold ||
+        (has_wider_precision && std::abs(wide_value) >= overflow_threshold) ||
         (conversion_errno == ERANGE && (value == 0.0 ||
                              std::abs(value) == std::numeric_limits<double>::max())))
         ThrowError("Number out of range", json_string, index);
