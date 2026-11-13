@@ -100,6 +100,20 @@ int main(int argc, char **argv) {
       } restore{original_rounding};
       for (int mode : {FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         Check(std::fesetround(mode) == 0);
+        const double max = std::numeric_limits<double>::max();
+        const double below_max = std::nextafter(max, 0.0);
+        for (const char* input : {"1.7976931348623157e308"}) {
+          const double value = JsonParser::Parse(input).GetNumber();
+          Check(value >= below_max && value <= max);
+        }
+        for (const char* input : {"-1.7976931348623157e308"}) {
+          const double value = JsonParser::Parse(input).GetNumber();
+          Check(value <= -below_max && value >= -max);
+        }
+        if (mode == FE_UPWARD) Reject("1.7976931348623158e308");
+        else Check(JsonParser::Parse("1.7976931348623158e308").GetNumber() == max);
+        if (mode == FE_DOWNWARD) Reject("-1.7976931348623158e308");
+        else Check(JsonParser::Parse("-1.7976931348623158e308").GetNumber() == -max);
         Reject("1e309");
         Reject("-1e309");
         Reject("1.7976931348623159e308");
