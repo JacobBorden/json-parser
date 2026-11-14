@@ -1,4 +1,8 @@
 #include "json.h"
+#include <cerrno>
+#include <clocale>
+#include <cstdlib>
+#include <limits>
 
 JsonValue JsonParser::Parse(const std::string& json_string)
 {
@@ -315,8 +319,34 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
         if (index == digits) ThrowError("Expected exponent digits", json_string, index);
     }
-    try { return std::stod(json_string.substr(start, index - start)); }
-    catch (const std::exception&) { ThrowError("Number out of range", json_string, index); }
+    std::string number = json_string.substr(start, index - start);
+    const size_t point = number.find('.');
+    if (point != std::string::npos)
+    {
+        const char* decimal_point = std::localeconv()->decimal_point;
+        if (decimal_point != nullptr && decimal_point[0] != '\0')
+            number.replace(point, 1, decimal_point);
+    }
+    errno = 0;
+    char* end = nullptr;
+    const double value = std::strtod(number.c_str(), &end);
+    const int conversion_errno = errno;
+    // Some C libraries clamp a decimal beyond the nearest-rounding overflow
+    // threshold to DBL_MAX under directed rounding without setting ERANGE.
+    const long double wide_value = std::strtold(number.c_str(), nullptr);
+    const long double max_double = std::numeric_limits<double>::max();
+    const long double overflow_threshold = max_double +
+        (max_double - std::nextafter(std::numeric_limits<double>::max(), 0.0)) / 2;
+    // An equally wide long double cannot distinguish DBL_MAX from a larger
+    // decimal clamped to it. Leave that case to strtod's range indication.
+    const bool has_wider_precision =
+        std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits;
+    if (end != number.c_str() + number.size() || !std::isfinite(value) ||
+        (has_wider_precision && std::abs(wide_value) >= overflow_threshold) ||
+        (conversion_errno == ERANGE && (value == 0.0 ||
+                             std::abs(value) == std::numeric_limits<double>::max())))
+        ThrowError("Number out of range", json_string, index);
+    return value;
 }
 
 void JsonParser::ThrowError(const std::string& message, const std::string& json_string, size_t index)
