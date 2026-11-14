@@ -118,6 +118,15 @@ int main(int argc, char **argv) {
         Reject("-1e309");
         Reject("1.7976931348623159e308");
         Reject("-1.7976931348623159e308");
+        const double denorm = std::numeric_limits<double>::denorm_min();
+        if (mode == FE_UPWARD)
+          Check(JsonParser::Parse("2e-324").GetNumber() == denorm);
+        else
+          Reject("2e-324");
+        if (mode == FE_DOWNWARD)
+          Check(JsonParser::Parse("-2e-324").GetNumber() == -denorm);
+        else
+          Reject("-2e-324");
       }
     } else if (group == "strings") {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
