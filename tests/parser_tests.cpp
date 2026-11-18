@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cfenv>
 #include <clocale>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -80,17 +81,19 @@ int main(int argc, char **argv) {
       const char* comma_locale = std::setlocale(LC_NUMERIC, "de_DE.utf8");
       if (comma_locale == nullptr)
         comma_locale = std::setlocale(LC_NUMERIC, "de_DE.UTF-8");
-      if (comma_locale != nullptr) {
-        Check(std::string(std::localeconv()->decimal_point) == ",");
-        Check(JsonParser::Parse("1.5").GetNumber() == 1.5);
-        Check(JsonParser::Parse("-12.5E-2").GetNumber() == -0.125);
-        Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
-              std::numeric_limits<double>::denorm_min());
-        const double negative_zero = JsonParser::Parse("-0.0").GetNumber();
-        Check(negative_zero == 0.0 && std::signbit(negative_zero));
-        Reject("1,5");
-        Check(JsonParser::Parse("[1,5]").GetArray().size() == 2);
+      if (comma_locale == nullptr) {
+        std::cerr << "Comma-decimal test requires the de_DE UTF-8 locale\n";
+        return std::getenv("JSON_PARSER_REQUIRE_COMMA_LOCALE") ? 1 : 77;
       }
+      Check(std::string(std::localeconv()->decimal_point) == ",");
+      Check(JsonParser::Parse("1.5").GetNumber() == 1.5);
+      Check(JsonParser::Parse("-12.5E-2").GetNumber() == -0.125);
+      Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
+            std::numeric_limits<double>::denorm_min());
+      const double negative_zero = JsonParser::Parse("-0.0").GetNumber();
+      Check(negative_zero == 0.0 && std::signbit(negative_zero));
+      Reject("1,5");
+      Check(JsonParser::Parse("[1,5]").GetArray().size() == 2);
     } else if (group == "rounding") {
       const int original_rounding = std::fegetround();
       Check(original_rounding != -1);

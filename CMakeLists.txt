@@ -15,6 +15,7 @@ if(BUILD_TESTING)
     add_test(NAME parser_${group} COMMAND parser_tests ${group})
     set_tests_properties(parser_${group} PROPERTIES TIMEOUT 10)
   endforeach()
+  set_tests_properties(parser_locale PROPERTIES SKIP_RETURN_CODE 77)
 
   add_executable(test_memory_leak tests/test_memory_leak.cpp)
   target_link_libraries(test_memory_leak PRIVATE json_parser)
