@@ -1,5 +1,6 @@
 #include "json.h"
 #include <cerrno>
+#include <cfenv>
 #include <clocale>
 #include <cstdlib>
 #include <limits>
@@ -331,21 +332,25 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
     char* end = nullptr;
     const double value = std::strtod(number.c_str(), &end);
     const int conversion_errno = errno;
-    // Some C libraries clamp a decimal beyond the nearest-rounding overflow
-    // threshold to DBL_MAX under directed rounding without setting ERANGE.
-    const long double wide_value = std::strtold(number.c_str(), nullptr);
-    const long double max_double = std::numeric_limits<double>::max();
-    const long double overflow_threshold = max_double +
-        (max_double - std::nextafter(std::numeric_limits<double>::max(), 0.0)) / 2;
-    // An equally wide long double cannot distinguish DBL_MAX from a larger
-    // decimal clamped to it. Leave that case to strtod's range indication.
-    const bool has_wider_precision =
-        std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits;
+    const double max_double = std::numeric_limits<double>::max();
     if (end != number.c_str() + number.size() || !std::isfinite(value) ||
-        (has_wider_precision && std::abs(wide_value) >= overflow_threshold) ||
-        (conversion_errno == ERANGE && (value == 0.0 ||
-                             std::abs(value) == std::numeric_limits<double>::max())))
+        (conversion_errno == ERANGE && (value == 0.0 || std::abs(value) == max_double)))
         ThrowError("Number out of range", json_string, index);
+
+    // With nearest rounding, strtod already decides which side of the
+    // overflow midpoint the decimal lies on. strtold can round a valid
+    // decimal up to that midpoint and make a second check reject it.
+    // Under directed rounding, strtod can clamp an overflow to DBL_MAX
+    // without ERANGE, so check that case when wider precision is available.
+    if (std::abs(value) == max_double && std::fegetround() != FE_TONEAREST &&
+        std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits)
+    {
+        const long double wide_max = max_double;
+        const long double overflow_threshold = wide_max +
+            (wide_max - std::nextafter(max_double, 0.0)) / 2;
+        if (std::abs(std::strtold(number.c_str(), nullptr)) >= overflow_threshold)
+            ThrowError("Number out of range", json_string, index);
+    }
     return value;
 }
 

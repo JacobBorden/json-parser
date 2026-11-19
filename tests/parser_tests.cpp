@@ -101,7 +101,14 @@ int main(int argc, char **argv) {
         int mode;
         ~RestoreRounding() { std::fesetround(mode); }
       } restore{original_rounding};
-      for (int mode : {FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
+      // Exact decimal integer for the binary64 overflow midpoint.
+      const std::string overflow_midpoint =
+          "1797693134862315807937289714053034150799341327100378269361737789"
+          "8044496829276475094664901797758720709633028641669288791094655554"
+          "7851940402630657488671505820681908902000708383676273854845817711"
+          "5317644757302700698555713669596228429148198608349364752927190741"
+          "68444365510704342711559699508093042880177904174497792";
+      for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         Check(std::fesetround(mode) == 0);
         const double max = std::numeric_limits<double>::max();
         const double below_max = std::nextafter(max, 0.0);
@@ -117,6 +124,17 @@ int main(int argc, char **argv) {
         else Check(JsonParser::Parse("1.7976931348623158e308").GetNumber() == max);
         if (mode == FE_DOWNWARD) Reject("-1.7976931348623158e308");
         else Check(JsonParser::Parse("-1.7976931348623158e308").GetNumber() == -max);
+        // These decimals straddle the binary64 overflow midpoint,
+        // 2^1024 - 2^970, within one x86 extended-precision rounding step.
+        if (mode == FE_UPWARD) Reject("1.7976931348623158079e308");
+        else Check(JsonParser::Parse("1.7976931348623158079e308").GetNumber() == max);
+        if (mode == FE_DOWNWARD) Reject("-1.7976931348623158079e308");
+        else Check(JsonParser::Parse("-1.7976931348623158079e308").GetNumber() == -max);
+        Reject("1.7976931348623158080e308");
+        Reject("-1.7976931348623158080e308");
+        Reject(overflow_midpoint);
+        Reject("-" + overflow_midpoint);
+        Check(std::fegetround() == mode);
         Reject("1e309");
         Reject("-1e309");
         Reject("1.7976931348623159e308");
