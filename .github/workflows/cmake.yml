@@ -27,4 +27,10 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
       - name: Test (zero tests is a failure)
-        run: ctest --test-dir build --output-on-failure --no-tests=error
+        env:
+          JSON_PARSER_REQUIRE_COMMA_LOCALE: "1"
+        run: |
+          export LOCPATH="$RUNNER_TEMP/json-parser-locales"
+          mkdir -p "$LOCPATH"
+          localedef -i de_DE -f UTF-8 "$LOCPATH/de_DE.utf8"
+          ctest --test-dir build --output-on-failure --no-tests=error

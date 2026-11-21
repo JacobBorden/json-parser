@@ -1,4 +1,9 @@
 #include "json.h"
+#include <cerrno>
+#include <cfenv>
+#include <clocale>
+#include <cstdlib>
+#include <limits>
 
 JsonValue JsonParser::Parse(const std::string& json_string)
 {
@@ -292,6 +297,73 @@ std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, si
 	return array;
 }
 
+namespace
+{
+// The token has already passed the JSON number grammar and converted to a
+// signed maximum. Compare its magnitude with the exact binary64 midpoint.
+bool AtOrAboveBinary64OverflowMidpoint(const std::string& token, size_t start,
+    size_t point, size_t mantissa_end, size_t end)
+{
+    static constexpr char midpoint[] =
+        "1797693134862315807937289714053034150799341327100378269361737789"
+        "8044496829276475094664901797758720709633028641669288791094655554"
+        "7851940402630657488671505820681908902000708383676273854845817711"
+        "5317644757302700698555713669596228429148198608349364752927190741"
+        "68444365510704342711559699508093042880177904174497792";
+
+    if (token[start] == '-') ++start;
+    const size_t first = token.find_first_not_of("0.", start);
+    if (first >= mantissa_end) return false;
+
+    // Determine the explicit exponent that would align the leading digit
+    // with the midpoint. Compare exponent digits without integer overflow.
+    const size_t midpoint_exponent = sizeof(midpoint) - 2;
+    const size_t leading_power = first < point ? point - first - 1 : 0;
+    const size_t fractional_shift = first > point ? first - point : 0;
+    const size_t target_power = midpoint_exponent + fractional_shift;
+    const bool target_negative = leading_power > target_power;
+    const size_t target_magnitude = target_negative
+        ? leading_power - target_power : target_power - leading_power;
+
+    size_t exponent = mantissa_end;
+    bool negative_exponent = false;
+    if (exponent < end)
+    {
+        ++exponent;
+        negative_exponent = token[exponent] == '-';
+        if (negative_exponent || token[exponent] == '+') ++exponent;
+        while (exponent < end && token[exponent] == '0') ++exponent;
+    }
+    if (exponent == end)
+    {
+        if (target_magnitude != 0) return target_negative;
+    }
+    else
+    {
+        if (negative_exponent != target_negative) return target_negative;
+        const std::string target = std::to_string(target_magnitude);
+        const size_t exponent_length = end - exponent;
+        if (exponent_length != target.size())
+            return negative_exponent ? exponent_length < target.size()
+                                     : exponent_length > target.size();
+        const int order = token.compare(exponent, exponent_length, target);
+        if (order != 0) return negative_exponent ? order < 0 : order > 0;
+    }
+
+    // With the leading digits aligned, compare the significands. A matching
+    // prefix that ends before the midpoint's last nonzero digit is smaller.
+    size_t digit = first;
+    for (size_t i = 0; i < sizeof(midpoint) - 1; ++i)
+    {
+        if (digit == point && digit < mantissa_end) ++digit;
+        if (digit == mantissa_end) return false;
+        if (token[digit] != midpoint[i]) return token[digit] > midpoint[i];
+        ++digit;
+    }
+    return true;
+}
+}
+
 double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 {
     const size_t start = index;
@@ -300,6 +372,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         ThrowError("Expected number", json_string, index);
     if (json_string[index] == '0') ++index;
     else while (index < json_string.size() && IsDigit(json_string[index])) ++index;
+    const size_t point = index;
     if (index < json_string.size() && json_string[index] == '.')
     {
         ++index;
@@ -307,6 +380,7 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
         if (index == digits) ThrowError("Expected fractional digits", json_string, index);
     }
+    const size_t mantissa_end = index;
     if (index < json_string.size() && (json_string[index] == 'e' || json_string[index] == 'E'))
     {
         ++index;
@@ -315,8 +389,45 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
         while (index < json_string.size() && IsDigit(json_string[index])) ++index;
         if (index == digits) ThrowError("Expected exponent digits", json_string, index);
     }
-    try { return std::stod(json_string.substr(start, index - start)); }
-    catch (const std::exception&) { ThrowError("Number out of range", json_string, index); }
+    std::string number = json_string.substr(start, index - start);
+    if (point < mantissa_end)
+    {
+        const char* decimal_point = std::localeconv()->decimal_point;
+        if (decimal_point != nullptr && decimal_point[0] != '\0')
+            number.replace(point - start, 1, decimal_point);
+    }
+    errno = 0;
+    char* end = nullptr;
+    const double value = std::strtod(number.c_str(), &end);
+    const int conversion_errno = errno;
+    const double max_double = std::numeric_limits<double>::max();
+    if (end != number.c_str() + number.size() || !std::isfinite(value) ||
+        (conversion_errno == ERANGE && (value == 0.0 || std::abs(value) == max_double)))
+        ThrowError("Number out of range", json_string, index);
+
+    // Directed rounding can clamp overflow to a signed maximum without
+    // ERANGE. For binary64, compare the original locale-independent token.
+    if (std::abs(value) == max_double && std::fegetround() != FE_TONEAREST)
+    {
+        if (std::numeric_limits<double>::radix == 2 &&
+            std::numeric_limits<double>::digits == 53 &&
+            std::numeric_limits<double>::max_exponent == 1024)
+        {
+            if (AtOrAboveBinary64OverflowMidpoint(
+                    json_string, start, point, mantissa_end, index))
+                ThrowError("Number out of range", json_string, index);
+        }
+        else if (std::numeric_limits<long double>::digits >
+                 std::numeric_limits<double>::digits)
+        {
+            const long double wide_max = max_double;
+            const long double overflow_threshold = wide_max +
+                (wide_max - std::nextafter(max_double, 0.0)) / 2;
+            if (std::abs(std::strtold(number.c_str(), nullptr)) >= overflow_threshold)
+                ThrowError("Number out of range", json_string, index);
+        }
+    }
+    return value;
 }
 
 void JsonParser::ThrowError(const std::string& message, const std::string& json_string, size_t index)
