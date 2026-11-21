@@ -108,6 +108,13 @@ int main(int argc, char **argv) {
           "7851940402630657488671505820681908902000708383676273854845817711"
           "5317644757302700698555713669596228429148198608349364752927190741"
           "68444365510704342711559699508093042880177904174497792";
+      const std::string prefix = overflow_midpoint.substr(0, overflow_midpoint.size() - 1);
+      const std::string just_below = prefix + "1";
+      const std::string just_above = prefix + "3";
+      const std::string fractional_below = "0.000" + just_below + "E+000312";
+      const std::string scaled_midpoint = overflow_midpoint + "00e-0002";
+      const std::string fractional_above =
+          just_above.substr(0, 1) + "." + just_above.substr(1) + "e308";
       for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
         Check(std::fesetround(mode) == 0);
         const double max = std::numeric_limits<double>::max();
@@ -132,8 +139,17 @@ int main(int argc, char **argv) {
         else Check(JsonParser::Parse("-1.7976931348623158079e308").GetNumber() == -max);
         Reject("1.7976931348623158080e308");
         Reject("-1.7976931348623158080e308");
-        Reject(overflow_midpoint);
-        Reject("-" + overflow_midpoint);
+        for (const std::string& input : {just_below, fractional_below}) {
+          if (mode == FE_UPWARD) Reject(input);
+          else Check(JsonParser::Parse(input).GetNumber() == max);
+          if (mode == FE_DOWNWARD) Reject("-" + input);
+          else Check(JsonParser::Parse("-" + input).GetNumber() == -max);
+        }
+        for (const std::string& input :
+             {overflow_midpoint, scaled_midpoint, just_above, fractional_above}) {
+          Reject(input);
+          Reject("-" + input);
+        }
         Check(std::fegetround() == mode);
         Reject("1e309");
         Reject("-1e309");
