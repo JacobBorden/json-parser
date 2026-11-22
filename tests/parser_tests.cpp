@@ -18,6 +18,10 @@ void Reject(const std::string &s) {
   }
   throw std::runtime_error("accepted invalid input: " + s);
 }
+struct RestoreRounding {
+  int mode;
+  ~RestoreRounding() { std::fesetround(mode); }
+};
 int main(int argc, char **argv) {
   try {
     std::string group = argc > 1 ? argv[1] : "";
@@ -85,6 +89,7 @@ int main(int argc, char **argv) {
         std::cerr << "Comma-decimal test requires the de_DE UTF-8 locale\n";
         return std::getenv("JSON_PARSER_REQUIRE_COMMA_LOCALE") ? 1 : 77;
       }
+      const std::string locale_name(comma_locale);
       Check(std::string(std::localeconv()->decimal_point) == ",");
       Check(JsonParser::Parse("1.5").GetNumber() == 1.5);
       Check(JsonParser::Parse("-12.5E-2").GetNumber() == -0.125);
@@ -94,13 +99,29 @@ int main(int argc, char **argv) {
       Check(negative_zero == 0.0 && std::signbit(negative_zero));
       Reject("1,5");
       Check(JsonParser::Parse("[1,5]").GetArray().size() == 2);
+
+      const int original_rounding = std::fegetround();
+      Check(original_rounding != -1);
+      RestoreRounding restore_rounding{original_rounding};
+      Check(std::fesetround(FE_TOWARDZERO) == 0);
+      const auto document = JsonParser::Parse(
+          "[1.5,-0.0,1.7976931348623158079e308,-1.7976931348623158079e308,5.0e-324]");
+      const auto& values = document.GetArray();
+      Check(values.size() == 5);
+      Check(values[0].GetNumber() == 1.5);
+      Check(values[1].GetNumber() == 0.0 && std::signbit(values[1].GetNumber()));
+      Check(values[2].GetNumber() == std::numeric_limits<double>::max());
+      Check(values[3].GetNumber() == -std::numeric_limits<double>::max());
+      Check(values[4].GetNumber() == std::numeric_limits<double>::denorm_min());
+      Reject("[1.5,1.7976931348623158080e308]");
+      Reject("[1.5,-1.7976931348623158080e308]");
+      Check(std::fegetround() == FE_TOWARDZERO);
+      const char* active_locale = std::setlocale(LC_NUMERIC, nullptr);
+      Check(active_locale != nullptr && locale_name == active_locale);
     } else if (group == "rounding") {
       const int original_rounding = std::fegetround();
       Check(original_rounding != -1);
-      struct RestoreRounding {
-        int mode;
-        ~RestoreRounding() { std::fesetround(mode); }
-      } restore{original_rounding};
+      RestoreRounding restore{original_rounding};
       // Exact decimal integer for the binary64 overflow midpoint.
       const std::string overflow_midpoint =
           "1797693134862315807937289714053034150799341327100378269361737789"
