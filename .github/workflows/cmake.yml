@@ -34,3 +34,21 @@ jobs:
           mkdir -p "$LOCPATH"
           localedef -i de_DE -f UTF-8 "$LOCPATH/de_DE.utf8"
           ctest --test-dir build --output-on-failure --no-tests=error
+
+  test-musl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test Release C++20 on Alpine
+        run: |
+          docker run --rm --volume "$GITHUB_WORKSPACE:/src:ro" alpine:3.22 sh -eu -c '
+            apk add --no-cache cmake g++ ninja
+            g++ --version
+            apk info -v musl
+            cmake -S /src -B /tmp/build -G Ninja -DBUILD_TESTING=ON \
+              -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=20
+            cmake --build /tmp/build --parallel 2
+            # Alpine does not supply the glibc de_DE UTF-8 numeric locale.
+            ctest --test-dir /tmp/build --output-on-failure --no-tests=error -E "^parser_locale$"
+          '
