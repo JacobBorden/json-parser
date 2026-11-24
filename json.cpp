@@ -5,6 +5,10 @@
 #include <cstdlib>
 #include <limits>
 
+#ifdef __GLIBC__
+#include <langinfo.h>
+#endif
+
 JsonValue JsonParser::Parse(const std::string& json_string)
 {
 	size_t index =0;
@@ -392,7 +396,12 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
     std::string number = json_string.substr(start, index - start);
     if (point < mantissa_end)
     {
+#ifdef __GLIBC__
+        // localeconv shares mutable result storage between threads on glibc.
+        const char* decimal_point = nl_langinfo(RADIXCHAR);
+#else
         const char* decimal_point = std::localeconv()->decimal_point;
+#endif
         if (decimal_point != nullptr && decimal_point[0] != '\0')
             number.replace(point - start, 1, decimal_point);
     }

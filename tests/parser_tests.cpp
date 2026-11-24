@@ -6,6 +6,11 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+
+#ifdef __GLIBC__
+#include <future>
+#include <locale.h>
+#endif
 void Check(bool ok) {
   if (!ok)
     throw std::runtime_error("check failed");
@@ -22,6 +27,33 @@ struct RestoreRounding {
   int mode;
   ~RestoreRounding() { std::fesetround(mode); }
 };
+#ifdef __GLIBC__
+int CountThreadLocaleFailures(const char* name) {
+  struct ThreadLocale {
+    locale_t locale;
+    locale_t previous;
+    ~ThreadLocale() {
+      if (previous != nullptr) uselocale(previous);
+      if (locale != nullptr) freelocale(locale);
+    }
+  } active{newlocale(LC_NUMERIC_MASK, name, nullptr), nullptr};
+  Check(active.locale != nullptr);
+  active.previous = uselocale(active.locale);
+  Check(active.previous != nullptr);
+
+  int failures = 0;
+  for (int i = 0; i < 100000; ++i) {
+    try {
+      if (JsonParser::Parse("-12.5E-2").GetNumber() != -0.125) ++failures;
+    } catch (const JsonParseException&) {
+      ++failures;
+    }
+  }
+  Check(uselocale(nullptr) == active.locale);
+  return failures;
+}
+#endif
+
 int main(int argc, char **argv) {
   try {
     std::string group = argc > 1 ? argv[1] : "";
@@ -118,6 +150,22 @@ int main(int argc, char **argv) {
       Check(std::fegetround() == FE_TOWARDZERO);
       const char* active_locale = std::setlocale(LC_NUMERIC, nullptr);
       Check(active_locale != nullptr && locale_name == active_locale);
+#ifdef __GLIBC__
+      auto c_first = std::async(
+          std::launch::async, CountThreadLocaleFailures, "C");
+      auto comma_first = std::async(
+          std::launch::async, CountThreadLocaleFailures, locale_name.c_str());
+      auto c_second = std::async(
+          std::launch::async, CountThreadLocaleFailures, "C");
+      auto comma_second = std::async(
+          std::launch::async, CountThreadLocaleFailures, locale_name.c_str());
+      const int c_failures = c_first.get() + c_second.get();
+      const int comma_failures = comma_first.get() + comma_second.get();
+      if (c_failures != 0 || comma_failures != 0)
+        throw std::runtime_error("Concurrent numeric locale failures: C " +
+            std::to_string(c_failures) + "/200000, comma " +
+            std::to_string(comma_failures) + "/200000");
+#endif
     } else if (group == "rounding") {
       const int original_rounding = std::fegetround();
       Check(original_rounding != -1);
