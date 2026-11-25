@@ -114,11 +114,15 @@ int main(int argc, char **argv) {
         std::string name;
         ~RestoreLocale() { std::setlocale(LC_NUMERIC, name.c_str()); }
       } restore{original_locale};
+#ifdef _WIN32
+      const char* comma_locale = std::setlocale(LC_NUMERIC, "de-DE");
+#else
       const char* comma_locale = std::setlocale(LC_NUMERIC, "de_DE.utf8");
       if (comma_locale == nullptr)
         comma_locale = std::setlocale(LC_NUMERIC, "de_DE.UTF-8");
+#endif
       if (comma_locale == nullptr) {
-        std::cerr << "Comma-decimal test requires the de_DE UTF-8 locale\n";
+        std::cerr << "Comma-decimal test requires a German numeric locale\n";
         return std::getenv("JSON_PARSER_REQUIRE_COMMA_LOCALE") ? 1 : 77;
       }
       const std::string locale_name(comma_locale);
