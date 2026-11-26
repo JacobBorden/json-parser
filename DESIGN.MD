@@ -25,6 +25,30 @@ Internally, it utilizes recursive descent parsing. The `ParseValue` method deter
 
 The parser maintains a mutable `index` representing the current cursor position in the `json_string` being parsed.
 
+### Numeric Compatibility
+
+`JsonParser::Parse` stores JSON numbers as `double`. Conversion uses the
+caller's active numeric locale and floating-point rounding mode. JSON input
+always uses a period for the decimal point. The parser adapts that period
+for conversion and leaves the caller's locale and rounding mode in effect.
+Applications must synchronize changes to the process-wide locale with
+parsing. Concurrent parsing under fixed per-thread numeric locales is
+covered on glibc.
+
+Finite nonzero subnormal results are accepted, including when conversion
+reports a range error. An explicit negative zero retains its sign. A range
+error from underflow to zero or overflow raises `JsonParseException` at the
+cursor after the number. On binary64, the parser also rejects input at or
+above the nearest-rounding overflow midpoint when directed rounding would
+otherwise return a signed finite maximum. A value below that midpoint can
+still overflow if the active rounding mode rounds it outward.
+
+A caller that previously used a parse exception to detect subnormal inputs
+must check the returned value with `std::fpclassify`. In a comma-decimal
+locale, a JSON decimal now yields its full value where an earlier parser
+could return only its integer prefix. These rules apply to parsing through
+`JsonParser::Parse`, including numbers in arrays and objects.
+
 ### Error Handling
 The parser uses C++ exceptions. The `JsonParseException` class (derived from `std::exception`) is thrown whenever the parser encounters malformed JSON, such as unexpected characters or truncated inputs.
 
