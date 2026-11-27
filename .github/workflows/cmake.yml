@@ -70,3 +70,24 @@ jobs:
         env:
           JSON_PARSER_REQUIRE_COMMA_LOCALE: "1"
         run: ctest --test-dir build -C ${{ matrix.build_type }} --output-on-failure --no-tests=error
+
+  test-macos-arm64:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record native toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          sw_vers
+          c++ --version
+          cmake --version
+          ninja --version
+      - name: Configure arm64 C++20 Release
+        run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=20 -DCMAKE_OSX_ARCHITECTURES=arm64
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test with the required comma-decimal locale
+        env:
+          JSON_PARSER_REQUIRE_COMMA_LOCALE: "1"
+        run: ctest --test-dir build --output-on-failure --no-tests=error
