@@ -1,6 +1,16 @@
 #include "json.h"
+#include <cmath>
+#include <cfenv>
+#include <clocale>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <limits>
+
+#ifdef __GLIBC__
+#include <future>
+#include <locale.h>
+#endif
 void Check(bool ok) {
   if (!ok)
     throw std::runtime_error("check failed");
@@ -13,6 +23,37 @@ void Reject(const std::string &s) {
   }
   throw std::runtime_error("accepted invalid input: " + s);
 }
+struct RestoreRounding {
+  int mode;
+  ~RestoreRounding() { std::fesetround(mode); }
+};
+#ifdef __GLIBC__
+int CountThreadLocaleFailures(const char* name) {
+  struct ThreadLocale {
+    locale_t locale;
+    locale_t previous;
+    ~ThreadLocale() {
+      if (previous != nullptr) uselocale(previous);
+      if (locale != nullptr) freelocale(locale);
+    }
+  } active{newlocale(LC_NUMERIC_MASK, name, nullptr), nullptr};
+  Check(active.locale != nullptr);
+  active.previous = uselocale(active.locale);
+  Check(active.previous != nullptr);
+
+  int failures = 0;
+  for (int i = 0; i < 100000; ++i) {
+    try {
+      if (JsonParser::Parse("-12.5E-2").GetNumber() != -0.125) ++failures;
+    } catch (const JsonParseException&) {
+      ++failures;
+    }
+  }
+  Check(uselocale(nullptr) == active.locale);
+  return failures;
+}
+#endif
+
 int main(int argc, char **argv) {
   try {
     std::string group = argc > 1 ? argv[1] : "";
@@ -30,6 +71,173 @@ int main(int argc, char **argv) {
                      {"-12.5E-2", -.125}})
         Check(std::abs(JsonParser::Parse(p.first).GetNumber() - p.second) <
               1e-9);
+      Check(JsonParser::Parse("1.7976931348623157e308").GetNumber() ==
+            std::numeric_limits<double>::max());
+      Check(JsonParser::Parse("1.7976931348623158e308").GetNumber() ==
+            std::numeric_limits<double>::max());
+      Check(JsonParser::Parse("-1.7976931348623158e308").GetNumber() ==
+            -std::numeric_limits<double>::max());
+      Check(JsonParser::Parse("2.2250738585072014e-308").GetNumber() ==
+            std::numeric_limits<double>::min());
+      Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
+            std::numeric_limits<double>::denorm_min());
+      Check(JsonParser::Parse("2.2250738585072009e-308").GetNumber() ==
+            std::nextafter(std::numeric_limits<double>::min(), 0.0));
+      Check(JsonParser::Parse("-4.9406564584124654e-324").GetNumber() ==
+            -std::numeric_limits<double>::denorm_min());
+      Check(JsonParser::Parse("3e-324").GetNumber() ==
+            std::numeric_limits<double>::denorm_min());
+      Check(JsonParser::Parse("-3e-324").GetNumber() ==
+            -std::numeric_limits<double>::denorm_min());
+      const double negative_zero = JsonParser::Parse("-0").GetNumber();
+      Check(negative_zero == 0.0 && std::signbit(negative_zero));
+      for (const char* input : {"-0.0", "-0e10", "-0.0E-10"}) {
+        const double value = JsonParser::Parse(input).GetNumber();
+        Check(value == 0.0 && std::signbit(value));
+      }
+      for (const char* input : {"0", "0.0", "0e10"}) {
+        const double value = JsonParser::Parse(input).GetNumber();
+        Check(value == 0.0 && !std::signbit(value));
+      }
+      Reject("1e309");
+      Reject("1.7976931348623159e308");
+      Reject("-1.7976931348623159e308");
+      Reject("2e-324");
+      Reject("-2e-324");
+      Reject("1e-9999");
+      Reject("-1e-9999");
+    } else if (group == "locale") {
+      const char* current = std::setlocale(LC_NUMERIC, nullptr);
+      Check(current != nullptr);
+      const std::string original_locale(current);
+      struct RestoreLocale {
+        std::string name;
+        ~RestoreLocale() { std::setlocale(LC_NUMERIC, name.c_str()); }
+      } restore{original_locale};
+#ifdef _WIN32
+      const char* comma_locale = std::setlocale(LC_NUMERIC, "de-DE");
+#else
+      const char* comma_locale = std::setlocale(LC_NUMERIC, "de_DE.utf8");
+      if (comma_locale == nullptr)
+        comma_locale = std::setlocale(LC_NUMERIC, "de_DE.UTF-8");
+#endif
+      if (comma_locale == nullptr) {
+        std::cerr << "Comma-decimal test requires a German numeric locale\n";
+        return std::getenv("JSON_PARSER_REQUIRE_COMMA_LOCALE") ? 1 : 77;
+      }
+      const std::string locale_name(comma_locale);
+      Check(std::string(std::localeconv()->decimal_point) == ",");
+      Check(JsonParser::Parse("1.5").GetNumber() == 1.5);
+      Check(JsonParser::Parse("-12.5E-2").GetNumber() == -0.125);
+      Check(JsonParser::Parse("4.9406564584124654e-324").GetNumber() ==
+            std::numeric_limits<double>::denorm_min());
+      const double negative_zero = JsonParser::Parse("-0.0").GetNumber();
+      Check(negative_zero == 0.0 && std::signbit(negative_zero));
+      Reject("1,5");
+      Check(JsonParser::Parse("[1,5]").GetArray().size() == 2);
+
+      const int original_rounding = std::fegetround();
+      Check(original_rounding != -1);
+      RestoreRounding restore_rounding{original_rounding};
+      Check(std::fesetround(FE_TOWARDZERO) == 0);
+      const auto document = JsonParser::Parse(
+          "[1.5,-0.0,1.7976931348623158079e308,-1.7976931348623158079e308,5.0e-324]");
+      const auto& values = document.GetArray();
+      Check(values.size() == 5);
+      Check(values[0].GetNumber() == 1.5);
+      Check(values[1].GetNumber() == 0.0 && std::signbit(values[1].GetNumber()));
+      Check(values[2].GetNumber() == std::numeric_limits<double>::max());
+      Check(values[3].GetNumber() == -std::numeric_limits<double>::max());
+      Check(values[4].GetNumber() == std::numeric_limits<double>::denorm_min());
+      Reject("[1.5,1.7976931348623158080e308]");
+      Reject("[1.5,-1.7976931348623158080e308]");
+      Check(std::fegetround() == FE_TOWARDZERO);
+      const char* active_locale = std::setlocale(LC_NUMERIC, nullptr);
+      Check(active_locale != nullptr && locale_name == active_locale);
+#ifdef __GLIBC__
+      auto c_first = std::async(
+          std::launch::async, CountThreadLocaleFailures, "C");
+      auto comma_first = std::async(
+          std::launch::async, CountThreadLocaleFailures, locale_name.c_str());
+      auto c_second = std::async(
+          std::launch::async, CountThreadLocaleFailures, "C");
+      auto comma_second = std::async(
+          std::launch::async, CountThreadLocaleFailures, locale_name.c_str());
+      const int c_failures = c_first.get() + c_second.get();
+      const int comma_failures = comma_first.get() + comma_second.get();
+      if (c_failures != 0 || comma_failures != 0)
+        throw std::runtime_error("Concurrent numeric locale failures: C " +
+            std::to_string(c_failures) + "/200000, comma " +
+            std::to_string(comma_failures) + "/200000");
+#endif
+    } else if (group == "rounding") {
+      const int original_rounding = std::fegetround();
+      Check(original_rounding != -1);
+      RestoreRounding restore{original_rounding};
+      // Exact decimal integer for the binary64 overflow midpoint.
+      const std::string overflow_midpoint =
+          "1797693134862315807937289714053034150799341327100378269361737789"
+          "8044496829276475094664901797758720709633028641669288791094655554"
+          "7851940402630657488671505820681908902000708383676273854845817711"
+          "5317644757302700698555713669596228429148198608349364752927190741"
+          "68444365510704342711559699508093042880177904174497792";
+      const std::string prefix = overflow_midpoint.substr(0, overflow_midpoint.size() - 1);
+      const std::string just_below = prefix + "1";
+      const std::string just_above = prefix + "3";
+      const std::string fractional_below = "0.000" + just_below + "E+000312";
+      const std::string scaled_midpoint = overflow_midpoint + "00e-0002";
+      const std::string fractional_above =
+          just_above.substr(0, 1) + "." + just_above.substr(1) + "e308";
+      for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
+        Check(std::fesetround(mode) == 0);
+        const double max = std::numeric_limits<double>::max();
+        const double below_max = std::nextafter(max, 0.0);
+        for (const char* input : {"1.7976931348623157e308"}) {
+          const double value = JsonParser::Parse(input).GetNumber();
+          Check(value >= below_max && value <= max);
+        }
+        for (const char* input : {"-1.7976931348623157e308"}) {
+          const double value = JsonParser::Parse(input).GetNumber();
+          Check(value <= -below_max && value >= -max);
+        }
+        if (mode == FE_UPWARD) Reject("1.7976931348623158e308");
+        else Check(JsonParser::Parse("1.7976931348623158e308").GetNumber() == max);
+        if (mode == FE_DOWNWARD) Reject("-1.7976931348623158e308");
+        else Check(JsonParser::Parse("-1.7976931348623158e308").GetNumber() == -max);
+        // These decimals straddle the binary64 overflow midpoint,
+        // 2^1024 - 2^970, within one x86 extended-precision rounding step.
+        if (mode == FE_UPWARD) Reject("1.7976931348623158079e308");
+        else Check(JsonParser::Parse("1.7976931348623158079e308").GetNumber() == max);
+        if (mode == FE_DOWNWARD) Reject("-1.7976931348623158079e308");
+        else Check(JsonParser::Parse("-1.7976931348623158079e308").GetNumber() == -max);
+        Reject("1.7976931348623158080e308");
+        Reject("-1.7976931348623158080e308");
+        for (const std::string& input : {just_below, fractional_below}) {
+          if (mode == FE_UPWARD) Reject(input);
+          else Check(JsonParser::Parse(input).GetNumber() == max);
+          if (mode == FE_DOWNWARD) Reject("-" + input);
+          else Check(JsonParser::Parse("-" + input).GetNumber() == -max);
+        }
+        for (const std::string& input :
+             {overflow_midpoint, scaled_midpoint, just_above, fractional_above}) {
+          Reject(input);
+          Reject("-" + input);
+        }
+        Check(std::fegetround() == mode);
+        Reject("1e309");
+        Reject("-1e309");
+        Reject("1.7976931348623159e308");
+        Reject("-1.7976931348623159e308");
+        const double denorm = std::numeric_limits<double>::denorm_min();
+        if (mode == FE_UPWARD)
+          Check(JsonParser::Parse("2e-324").GetNumber() == denorm);
+        else
+          Reject("2e-324");
+        if (mode == FE_DOWNWARD)
+          Check(JsonParser::Parse("-2e-324").GetNumber() == -denorm);
+        else
+          Reject("-2e-324");
+      }
     } else if (group == "strings") {
       Check(JsonParser::Parse(R"("hello\nworld")").GetString() ==
             "hello\nworld");
